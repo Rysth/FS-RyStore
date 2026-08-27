@@ -1,10 +1,23 @@
 import sanitizeHtml from "sanitize-html";
-import { and, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { products } from "../db/schema.ts";
-import type { OptionType, VariantOptions } from "../db/schema.ts";
+import type { Database } from "../db/client.ts";
+import { categories, priceTiers, productImages, products, productVariants } from "../db/schema.ts";
+import type {
+  OptionType,
+  PriceTier,
+  Product,
+  ProductImage,
+  ProductVariant,
+  VariantOptions,
+} from "../db/schema.ts";
 import { toCents, ZERO } from "../lib/money.ts";
+import { assetUrl } from "../lib/serializers.ts";
 import { uniqueSlug } from "../lib/slug.ts";
+import { totalStock, variantLabel } from "./pricing.ts";
+import type { PricedProduct, PricedVariant } from "./pricing.ts";
+
+type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 /**
  * Port of backend/app/models/product.rb — the validation half.
@@ -239,7 +252,7 @@ export function validateVariants(variants: NormalizedVariant[], axes: OptionType
   }
 
   if (variants.length > MAX_VARIANTS) {
-    errors.push(`No puedes configurar más de ${MAX_VARIANTS} variantes`);
+    errors.push(`Un producto no puede tener más de ${MAX_VARIANTS} variantes`);
   }
 
   const keys = variants.map((variant) => optionsKey(variant.options));
@@ -358,4 +371,293 @@ export function stockForKind(kind: string, stock: number | null): number | null 
 
 function isBlank(value: unknown): boolean {
   return value === null || value === undefined || String(value).trim() === "";
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Persistence
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const MAX_IMAGES_PER_PRODUCT = 3;
+
+export type ProductRecord = {
+  product: Product;
+  categoryName: string | null;
+  tiers: PriceTier[];
+  variants: ProductVariant[];
+  images: ProductImage[];
+};
+
+export async function findProduct(id: number): Promise<ProductRecord | null> {
+  const [row] = await db
+    .select({ product: products, categoryName: categories.name })
+    .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .where(eq(products.id, id))
+    .limit(1);
+  if (!row) return null;
+
+  const [records] = await loadChildren([row.product.id]);
+  return {
+    product: row.product,
+    categoryName: row.categoryName,
+    ...(records ?? { tiers: [], variants: [], images: [] }),
+  };
+}
+
+export type ProductFilters = {
+  categoryId?: number;
+  active?: boolean;
+  search?: string;
+};
+
+export async function listProducts(
+  filters: ProductFilters,
+  page: number,
+  perPage: number,
+): Promise<{ rows: ProductRecord[]; total: number }> {
+  const conditions = [];
+  if (filters.categoryId !== undefined) conditions.push(eq(products.categoryId, filters.categoryId));
+  if (filters.active !== undefined) conditions.push(eq(products.active, filters.active));
+  if (filters.search) {
+    const term = `%${filters.search}%`;
+    conditions.push(
+      sql`(${products.name} ilike ${term} or ${products.description} ilike ${term})`,
+    );
+  }
+  const where = conditions.length ? and(...conditions) : undefined;
+
+  const [{ count = 0 } = {}] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(products)
+    .where(where);
+
+  const rows = await db
+    .select({ product: products, categoryName: categories.name })
+    .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .where(where)
+    .orderBy(desc(products.createdAt), desc(products.id))
+    .limit(perPage)
+    .offset((page - 1) * perPage);
+
+  const children = await loadChildren(rows.map((row) => row.product.id));
+  return {
+    total: count,
+    rows: rows.map((row, index) => ({
+      product: row.product,
+      categoryName: row.categoryName,
+      ...(children[index] ?? { tiers: [], variants: [], images: [] }),
+    })),
+  };
+}
+
+/**
+ * Three grouped queries instead of one join, so a product with 8 tiers, 20
+ * variants and 3 images does not come back as 480 duplicated rows.
+ */
+async function loadChildren(
+  ids: number[],
+): Promise<Array<{ tiers: PriceTier[]; variants: ProductVariant[]; images: ProductImage[] }>> {
+  if (ids.length === 0) return [];
+
+  const [tiers, variants, images] = await Promise.all([
+    db.select().from(priceTiers).where(inArray(priceTiers.productId, ids)).orderBy(asc(priceTiers.minQuantity)),
+    db
+      .select()
+      .from(productVariants)
+      .where(inArray(productVariants.productId, ids))
+      .orderBy(asc(productVariants.position), asc(productVariants.id)),
+    db
+      .select()
+      .from(productImages)
+      .where(inArray(productImages.productId, ids))
+      .orderBy(asc(productImages.position), asc(productImages.id)),
+  ]);
+
+  return ids.map((id) => ({
+    tiers: tiers.filter((row) => row.productId === id),
+    variants: variants.filter((row) => row.productId === id),
+    images: images.filter((row) => row.productId === id),
+  }));
+}
+
+/**
+ * Replaces the whole ladder. The admin form always submits every tier, so
+ * patching row by row would need ids the form does not have.
+ */
+export async function replaceTiers(
+  tx: Transaction,
+  productId: number,
+  tiers: NormalizedTier[],
+): Promise<void> {
+  await tx.delete(priceTiers).where(eq(priceTiers.productId, productId));
+  if (tiers.length === 0) return;
+
+  await tx.insert(priceTiers).values(
+    tiers.map((tier) => ({
+      productId,
+      minQuantity: tier.minQuantity,
+      unitPrice: tier.unitPrice,
+    })),
+  );
+}
+
+/**
+ * Replaces the whole matrix, but matches rows to existing records by their
+ * **option combination** rather than by id. The admin regenerates the matrix
+ * from the axes and has no id for "Talla M / Color Negro", so matching by id
+ * would delete and recreate every row on each save — losing the stock the shop
+ * typed and orphaning the order_items that point at it.
+ */
+export async function replaceVariants(
+  tx: Transaction,
+  productId: number,
+  variants: NormalizedVariant[],
+): Promise<void> {
+  const existing = await tx
+    .select()
+    .from(productVariants)
+    .where(eq(productVariants.productId, productId));
+
+  const byKey = new Map(existing.map((row) => [optionsKey(row.options as VariantOptions), row]));
+  const keptIds: number[] = [];
+
+  for (const variant of variants) {
+    const match = byKey.get(optionsKey(variant.options));
+    if (match) {
+      keptIds.push(match.id);
+      await tx
+        .update(productVariants)
+        .set({
+          options: variant.options,
+          sku: variant.sku,
+          price: variant.price,
+          stock: variant.stock,
+          position: variant.position,
+          updatedAt: new Date(),
+        })
+        .where(eq(productVariants.id, match.id));
+      continue;
+    }
+
+    const [created] = await tx
+      .insert(productVariants)
+      .values({
+        productId,
+        options: variant.options,
+        sku: variant.sku,
+        price: variant.price,
+        stock: variant.stock,
+        position: variant.position,
+      })
+      .returning({ id: productVariants.id });
+    if (created) keptIds.push(created.id);
+  }
+
+  // order_items.product_variant_id is ON DELETE SET NULL, so a past order keeps
+  // its frozen variant_label even when the combination stops being sold.
+  await tx
+    .delete(productVariants)
+    .where(
+      keptIds.length
+        ? and(eq(productVariants.productId, productId), notInArray(productVariants.id, keptIds))
+        : eq(productVariants.productId, productId),
+    );
+}
+
+/** Closes gaps so position 0 is always occupied — it is the main photo. */
+export async function compactImagePositions(productId: number): Promise<void> {
+  const rows = await db
+    .select({ id: productImages.id })
+    .from(productImages)
+    .where(eq(productImages.productId, productId))
+    .orderBy(asc(productImages.position), asc(productImages.id));
+
+  await db.transaction(async (tx) => {
+    for (const [position, row] of rows.entries()) {
+      await tx
+        .update(productImages)
+        .set({ position, updatedAt: new Date() })
+        .where(eq(productImages.id, row.id));
+    }
+  });
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Serialization
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export function serializeProduct(record: ProductRecord) {
+  const { product, tiers, variants, images } = record;
+  const gallery = galleryUrls(record);
+
+  return {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    description: product.description,
+    price: product.price,
+    compare_at_price: product.compareAtPrice,
+    category_id: product.categoryId,
+    category_name: record.categoryName,
+    // `image_url` stays the main photo — the catalog card and the WhatsApp
+    // preview read it — and `images` is the whole gallery in order. A client
+    // that never learns about galleries still works.
+    image_url: gallery[0] ?? "",
+    images: images.map((image) => ({
+      id: image.id,
+      position: image.position,
+      url: assetUrl(image.fileKey),
+    })),
+    video_url: assetUrl(product.videoKey),
+    active: product.active,
+    kind: product.kind,
+    stock: product.stock,
+    // Total across the matrix when there is one, so the product list can keep
+    // showing a single number per row.
+    total_stock: totalStock(toPricedProduct(product), variants.map(toPricedVariant)),
+    price_tiers: tiers.map((tier) => ({
+      min_quantity: tier.minQuantity,
+      unit_price: tier.unitPrice,
+    })),
+    option_types: product.optionTypes as OptionType[],
+    variants: variants.map((variant) => ({
+      id: variant.id,
+      options: variant.options as VariantOptions,
+      label: variantLabel(toPricedProduct(product), variant.options as VariantOptions),
+      sku: variant.sku,
+      price: variant.price,
+      stock: variant.stock,
+      position: variant.position,
+    })),
+    created_at: product.createdAt,
+    updated_at: product.updatedAt,
+  };
+}
+
+/** The gallery wins; the legacy single photo is the fallback. */
+export function galleryUrls(record: Pick<ProductRecord, "product" | "images">): string[] {
+  if (record.images.length > 0) return record.images.map((image) => assetUrl(image.fileKey));
+  return record.product.imageKey ? [assetUrl(record.product.imageKey)] : [];
+}
+
+export function toPricedProduct(product: Product): PricedProduct {
+  return {
+    id: product.id,
+    price: product.price,
+    kind: product.kind,
+    active: product.active,
+    stock: product.stock,
+    optionTypes: product.optionTypes as OptionType[],
+  };
+}
+
+export function toPricedVariant(variant: ProductVariant): PricedVariant {
+  return {
+    id: variant.id,
+    productId: variant.productId,
+    options: variant.options as VariantOptions,
+    price: variant.price,
+    stock: variant.stock,
+  };
 }
