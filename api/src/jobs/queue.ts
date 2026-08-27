@@ -13,9 +13,22 @@ import { env, isTest } from "../config/env.ts";
 
 export const QUEUES = {
   sendEmail: "send-email",
+  orderNotification: "order-notification",
   cleanupVerifications: "cleanup-verifications",
   cleanupSessions: "cleanup-sessions",
 } as const;
+
+/**
+ * Tells the shop an order arrived, or that its buyer uploaded a receipt.
+ *
+ * Carries the id rather than the order: the handler re-reads it, so a status
+ * change between enqueue and delivery is reflected in the email. An order that
+ * no longer exists is not an error — the handler returns quietly.
+ */
+export type OrderNotificationJob = {
+  orderId: number;
+  event: "new_order" | "payment_proof";
+};
 
 export type EmailJob =
   | { type: "verify_account"; to: string; url: string }
@@ -90,6 +103,24 @@ export async function enqueueEmail(job: EmailJob): Promise<void> {
 
   const instance = await getBoss();
   await instance.send(QUEUES.sendEmail, job, {
+    retryLimit: 5,
+    retryDelay: 2,
+    retryBackoff: true,
+    expireInSeconds: 120,
+    retentionDays: 3,
+  });
+}
+
+/**
+ * Enqueued from the request that created the order rather than from inside the
+ * creator: that saves in a transaction, so notifying there would fire before
+ * the commit and the handler could read an order that does not exist yet.
+ */
+export async function enqueueOrderNotification(job: OrderNotificationJob): Promise<void> {
+  if (isTest) return;
+
+  const instance = await getBoss();
+  await instance.send(QUEUES.orderNotification, job, {
     retryLimit: 5,
     retryDelay: 2,
     retryBackoff: true,

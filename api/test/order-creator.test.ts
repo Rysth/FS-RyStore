@@ -247,7 +247,7 @@ describe("combos", () => {
 
     const items = await itemsOf(result.orderId);
     assert.equal(items.length, 1);
-    assert.equal(items[0]!.unitPrice, "15.00");
+    assert.equal(items[0]!.unitPrice, "12.00");
     assert.equal(items[0]!.productId, null, "una línea de combo no lleva product_id");
     assert.equal(items[0]!.promotionId, comboId);
     assert.equal(items[0]!.details, "Demo Camiseta x1 · Demo Sticker x2");

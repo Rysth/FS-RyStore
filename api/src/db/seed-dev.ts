@@ -195,10 +195,14 @@ async function seedCatalog(): Promise<void> {
     .onConflictDoUpdate({ target: products.slug, set: { price: "2.00", active: true } })
     .returning();
 
+  // 12.00 against a regular total of 14.00 (1 x 10.00 + 2 x 2.00). A combo has
+  // to cost less than its parts bought separately — the admin refuses to save
+  // one that does not, so a fixture that broke the rule would be unreachable
+  // through the UI it is meant to stand in for.
   const [combo] = await db
     .insert(promotions)
-    .values({ name: "Demo Combo Básico", slug: CATALOG_SLUGS.combo, price: "15.00", position: 1 })
-    .onConflictDoUpdate({ target: promotions.slug, set: { price: "15.00", active: true } })
+    .values({ name: "Demo Combo Básico", slug: CATALOG_SLUGS.combo, price: "12.00", position: 1 })
+    .onConflictDoUpdate({ target: promotions.slug, set: { price: "12.00", active: true } })
     .returning();
 
   await db.delete(promotionItems).where(eq(promotionItems.promotionId, combo!.id));

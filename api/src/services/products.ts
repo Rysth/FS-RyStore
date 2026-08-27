@@ -382,6 +382,7 @@ export const MAX_IMAGES_PER_PRODUCT = 3;
 export type ProductRecord = {
   product: Product;
   categoryName: string | null;
+  categorySlug: string | null;
   tiers: PriceTier[];
   variants: ProductVariant[];
   images: ProductImage[];
@@ -389,7 +390,7 @@ export type ProductRecord = {
 
 export async function findProduct(id: number): Promise<ProductRecord | null> {
   const [row] = await db
-    .select({ product: products, categoryName: categories.name })
+    .select({ product: products, categoryName: categories.name, categorySlug: categories.slug })
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(eq(products.id, id))
@@ -400,6 +401,7 @@ export async function findProduct(id: number): Promise<ProductRecord | null> {
   return {
     product: row.product,
     categoryName: row.categoryName,
+    categorySlug: row.categorySlug,
     ...(records ?? { tiers: [], variants: [], images: [] }),
   };
 }
@@ -432,7 +434,7 @@ export async function listProducts(
     .where(where);
 
   const rows = await db
-    .select({ product: products, categoryName: categories.name })
+    .select({ product: products, categoryName: categories.name, categorySlug: categories.slug })
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(where)
@@ -446,6 +448,7 @@ export async function listProducts(
     rows: rows.map((row, index) => ({
       product: row.product,
       categoryName: row.categoryName,
+      categorySlug: row.categorySlug,
       ...(children[index] ?? { tiers: [], variants: [], images: [] }),
     })),
   };

@@ -1,6 +1,7 @@
 import Fastify from "fastify";
-import type { FastifyError } from "fastify";
+import type { FastifyError, FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
+import type { FastifyCorsOptions } from "@fastify/cors";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
@@ -43,11 +44,38 @@ export async function buildServer() {
     bodyLimit: 21 * 1024 * 1024,
   });
 
+  // Two CORS policies, one registration. @fastify/cors decorates the request
+  // and refuses to be registered twice — even in an encapsulated scope — so the
+  // storefront's block is expressed through the plugin's own delegator.
+  //
+  // The storefront half carries no credentials and allows no Authorization
+  // header: nothing under /public is session-bound, and a cookie sent there
+  // would be a mistake. Rails expressed this as a second `allow` block.
   await app.register(cors, {
-    origin: env.ADMIN_ALLOWED_ORIGINS,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    exposedHeaders: ["Content-Disposition", "API-Version", "Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+    delegator(request: FastifyRequest, callback: (error: Error | null, options: FastifyCorsOptions) => void) {
+      if (request.url.startsWith("/api/v1/public/")) {
+        return callback(null, {
+          origin: env.STOREFRONT_ALLOWED_ORIGINS ?? [env.STOREFRONT_URL],
+          credentials: false,
+          methods: ["GET", "POST", "OPTIONS"],
+          exposedHeaders: ["API-Version", "Retry-After"],
+        });
+      }
+
+      callback(null, {
+        origin: env.ADMIN_ALLOWED_ORIGINS,
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        exposedHeaders: [
+          "Content-Disposition",
+          "API-Version",
+          "Retry-After",
+          "X-RateLimit-Limit",
+          "X-RateLimit-Remaining",
+          "X-RateLimit-Reset",
+        ],
+      });
+    },
   });
 
   await app.register(cookie);

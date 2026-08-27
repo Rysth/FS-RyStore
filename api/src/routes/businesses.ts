@@ -24,6 +24,21 @@ import {
  * admin calls it, and `:id` is accepted for compatibility but ignored.
  */
 
+/**
+ * Restricted to Google's own hosts on purpose: maps_url is rendered as a link
+ * in the storefront footer of every page, so an unconstrained URL field would
+ * let anyone with edit_business point the whole shop at an arbitrary site.
+ *
+ * The TLD is spelled out rather than left as [a-z.]+, which would have matched
+ * google.com.evil.com/maps — an attacker-registered host that reads as Google
+ * to anyone skimming the URL.
+ */
+const MAPS_TLD = String.raw`[a-z]{2,3}(\.[a-z]{2})?`;
+const MAPS_URL_FORMAT = new RegExp(
+  String.raw`^https://(maps\.app\.goo\.gl/|goo\.gl/maps/|(www\.)?google\.${MAPS_TLD}/maps|maps\.google\.${MAPS_TLD}/)`,
+  "i",
+);
+
 // Format validations carried over from the Business model.
 const businessSchema = z.object({
   name: z
@@ -52,6 +67,25 @@ const businessSchema = z.object({
     .regex(/^[a-zA-Z0-9._]+$/, "debe ser un nombre de usuario de TikTok válido")
     .or(z.literal(""))
     .nullish(),
+  address: z.string().max(200, "no puede tener más de 200 caracteres").nullish(),
+  maps_url: z
+    .string()
+    .regex(MAPS_URL_FORMAT, "debe ser un enlace de Google Maps (ej. https://maps.app.goo.gl/...)")
+    .or(z.literal(""))
+    .nullish(),
+  delivery_notes: z.string().max(1000, "no puede tener más de 1000 caracteres").nullish(),
+  bank_instructions: z.string().max(1000, "no puede tener más de 1000 caracteres").nullish(),
+  primary_color: z
+    .string()
+    .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "debe ser un color hexadecimal válido (ej. #E11D48)")
+    .or(z.literal(""))
+    .nullish(),
+  notification_email: z
+    .string()
+    .email("debe ser un correo válido")
+    .or(z.literal(""))
+    .nullish(),
+  published: z.coerce.boolean().optional(),
 });
 
 /**
@@ -157,6 +191,17 @@ export async function registerBusinessRoutes(app: FastifyInstance): Promise<void
           ...(values.instagram !== undefined ? { instagram: values.instagram ?? null } : {}),
           ...(values.facebook !== undefined ? { facebook: values.facebook ?? null } : {}),
           ...(values.tiktok !== undefined ? { tiktok: values.tiktok ?? null } : {}),
+          ...(values.address !== undefined ? { address: values.address ?? null } : {}),
+          ...(values.maps_url !== undefined ? { mapsUrl: values.maps_url ?? null } : {}),
+          ...(values.delivery_notes !== undefined ? { deliveryNotes: values.delivery_notes ?? null } : {}),
+          ...(values.bank_instructions !== undefined
+            ? { bankInstructions: values.bank_instructions ?? null }
+            : {}),
+          ...(values.primary_color !== undefined ? { primaryColor: values.primary_color ?? null } : {}),
+          ...(values.notification_email !== undefined
+            ? { notificationEmail: values.notification_email ?? null }
+            : {}),
+          ...(values.published !== undefined ? { published: values.published } : {}),
           logoKey,
         });
 

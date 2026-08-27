@@ -82,6 +82,15 @@ export function serializeBusiness(business: Business) {
     instagram: business.instagram,
     facebook: business.facebook,
     tiktok: business.tiktok,
+    address: business.address,
+    maps_url: business.mapsUrl,
+    delivery_notes: business.deliveryNotes,
+    bank_instructions: business.bankInstructions,
+    primary_color: business.primaryColor,
+    published: business.published,
+    // Owner-only: never add this to the public store payload, which the
+    // buyer's browser reads straight off the storefront.
+    notification_email: business.notificationEmail,
     created_at: business.createdAt.toISOString(),
     updated_at: business.updatedAt.toISOString(),
   };
