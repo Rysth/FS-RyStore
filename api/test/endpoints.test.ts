@@ -120,21 +120,21 @@ describe("GET /api/v1/users", () => {
 });
 
 describe("GET /api/v1/dashboard/stats", () => {
-  it("cuadra con los totales de la base de datos", async () => {
+  it("cuadra con los totales de pedidos de la base de datos", async () => {
     const response = await asManager("/api/v1/dashboard/stats");
     assert.equal(response.statusCode, 200);
 
     const body = response.json();
-    const { rows } = await pool.query<{ total: string; verified: string }>(`
+    const { rows } = await pool.query<{ total: string; pending: string }>(`
       SELECT count(*) AS total,
-             count(*) FILTER (WHERE email_verified AND closed_at IS NULL) AS verified
-        FROM users
+             count(*) FILTER (WHERE status = 'pendiente') AS pending
+        FROM orders
     `);
 
-    assert.equal(body.stats.total_users, Number.parseInt(rows[0]!.total, 10));
-    assert.equal(body.stats.verified_users, Number.parseInt(rows[0]!.verified, 10));
-    assert.equal(body.registration_trend.length, 6, "la tendencia cubre seis meses");
-    assert.ok(body.recent_users.length <= 5);
+    assert.equal(body.stats.total_orders, Number.parseInt(rows[0]!.total, 10));
+    assert.equal(body.stats.pending_orders, Number.parseInt(rows[0]!.pending, 10));
+    assert.equal(body.sales_trend.length, 6, "la tendencia cubre seis meses");
+    assert.ok(body.recent_orders.length <= 5);
   });
 
   it("es accesible para un operator", async () => {

@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { sql } from "drizzle-orm";
-import { db, pool } from "../db/client.ts";
+import { pool } from "../db/client.ts";
 import { requirePermission } from "../middleware/authorize.ts";
 import { PERMISSION_KEYS } from "../db/seed.ts";
+import { ORDER_STATUSES } from "../db/schema.ts";
 import { ok } from "../lib/response.ts";
 
 /**
@@ -10,31 +10,24 @@ import { ok } from "../lib/response.ts";
  *
  * Ported from Api::V1::DashboardController. The Rails version issued a separate
  * COUNT for every figure — including four inside a six-iteration loop for the
- * registration trend, so roughly twenty round trips per request, which is why
- * it needed a two-minute cache to feel acceptable. Here it is four queries and
- * the cache is gone (see the caching note in the migration plan).
+ * sales trend, so roughly thirty round trips per request, which is why it
+ * needed a two-minute cache to feel acceptable. Here it is four queries and the
+ * cache is gone.
+ *
+ * Cancelled orders never became real business, so every revenue figure excludes
+ * them while the order *counts* include them: the shop still handled those.
  */
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Administradores",
-  manager: "Gerentes",
-  operator: "Operadores",
-  user: "Usuarios",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  verified: "Verificados",
-  unverified: "Sin verificar",
-  closed: "Cerrados",
-};
 
 const MONTHS_ES = [
   "ene", "feb", "mar", "abr", "may", "jun",
   "jul", "ago", "sep", "oct", "nov", "dic",
 ];
 
-function roleLabel(name: string): string {
-  return ROLE_LABELS[name] ?? name.charAt(0).toUpperCase() + name.slice(1);
+/** A product at or below this is what the dashboard flags as "por acabarse". */
+const LOW_STOCK_THRESHOLD = 5;
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 export async function registerDashboardRoutes(app: FastifyInstance): Promise<void> {
@@ -42,42 +35,43 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
     "/api/v1/dashboard/stats",
     { preHandler: requirePermission(PERMISSION_KEYS.VIEW_DASHBOARD) },
     async (_request, reply) => {
-      // One pass over `users` for every headline figure.
-      const totalsQuery = pool.query<{
-        total: string;
-        verified: string;
-        unverified: string;
-        closed: string;
-        today: string;
-        this_week: string;
-        this_month: string;
-        last_month: string;
-      }>(`
+      // One pass over `orders` for every headline figure. `date_trunc('week')`
+      // is Monday-based in Postgres, matching Rails' beginning_of_week.
+      const ordersQuery = pool.query<Record<string, string>>(`
         SELECT
-          count(*)                                                              AS total,
-          count(*) FILTER (WHERE email_verified AND closed_at IS NULL)          AS verified,
-          count(*) FILTER (WHERE NOT email_verified AND closed_at IS NULL)      AS unverified,
-          count(*) FILTER (WHERE closed_at IS NOT NULL)                         AS closed,
-          count(*) FILTER (WHERE created_at >= date_trunc('day', now()))        AS today,
-          count(*) FILTER (WHERE created_at >= date_trunc('week', now()))       AS this_week,
-          count(*) FILTER (WHERE created_at >= date_trunc('month', now()))      AS this_month,
+          count(*)                                                                 AS total,
+          count(*) FILTER (WHERE status = 'pendiente')                             AS pending,
+          count(*) FILTER (WHERE created_at >= date_trunc('day', now()))           AS today,
+          count(*) FILTER (WHERE created_at >= date_trunc('week', now()))          AS this_week,
+          count(*) FILTER (WHERE created_at >= date_trunc('month', now()))         AS this_month,
           count(*) FILTER (WHERE created_at >= date_trunc('month', now()) - interval '1 month'
-                             AND created_at <  date_trunc('month', now()))      AS last_month
-        FROM users
+                             AND created_at <  date_trunc('month', now()))         AS last_month,
+          count(*) FILTER (WHERE status <> 'cancelado')                            AS billable,
+          coalesce(sum(total) FILTER (WHERE status <> 'cancelado'), 0)::numeric(12,2) AS revenue,
+          coalesce(sum(total) FILTER (WHERE status <> 'cancelado'
+                             AND created_at >= date_trunc('month', now())), 0)::numeric(12,2) AS revenue_this_month,
+          coalesce(sum(total) FILTER (WHERE status <> 'cancelado'
+                             AND created_at >= date_trunc('month', now()) - interval '1 month'
+                             AND created_at <  date_trunc('month', now())), 0)::numeric(12,2) AS revenue_last_month
+        FROM orders
       `);
 
-      // Every role, including those with no users — Rails did this by starting
-      // from `Role.pluck(:name)` and filling in zeros.
-      const rolesQuery = pool.query<{ name: string; count: string }>(`
-        SELECT r.name, count(ur.user_id) AS count
-          FROM roles r
-          LEFT JOIN user_roles ur ON ur.role_id = r.id
-         GROUP BY r.name
-         ORDER BY count DESC, r.name
+      const catalogQuery = pool.query<Record<string, string>>(`
+        SELECT
+          (SELECT count(*) FROM products)                                        AS total_products,
+          (SELECT count(*) FROM products WHERE active)                           AS active_products,
+          (SELECT count(*) FROM products
+            WHERE stock IS NOT NULL AND stock <= ${LOW_STOCK_THRESHOLD})         AS low_stock_products,
+          (SELECT count(*) FROM categories)                                      AS total_categories
       `);
 
-      // Six months of registrations in one grouped query instead of a loop.
-      const trendQuery = pool.query<{ month: string; total: string; verified: string }>(`
+      // Six months in one grouped query instead of a loop. generate_series
+      // keeps a month with no orders in the chart as a zero rather than a gap.
+      const trendQuery = pool.query<{
+        month: string;
+        orders: string;
+        revenue: string;
+      }>(`
         WITH months AS (
           SELECT generate_series(
             date_trunc('month', now()) - interval '5 months',
@@ -85,108 +79,101 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
             interval '1 month'
           ) AS month
         )
-        SELECT to_char(m.month, 'YYYY-MM') AS month,
-               count(u.id)                                     AS total,
-               count(u.id) FILTER (WHERE u.email_verified)      AS verified
+        SELECT to_char(m.month, 'YYYY-MM')                                       AS month,
+               count(o.id)                                                       AS orders,
+               coalesce(sum(o.total) FILTER (WHERE o.status <> 'cancelado'), 0)::numeric(12,2) AS revenue
           FROM months m
-          LEFT JOIN users u ON date_trunc('month', u.created_at) = m.month
+          LEFT JOIN orders o ON date_trunc('month', o.created_at) = m.month
          GROUP BY m.month
          ORDER BY m.month
       `);
 
+      const statusQuery = pool.query<{ status: string; count: string }>(`
+        SELECT status, count(*) AS count FROM orders GROUP BY status
+      `);
+
       const recentQuery = pool.query<{
         id: string;
-        fullname: string;
-        username: string;
-        email: string;
-        roles: string[] | null;
-        verified: boolean;
+        number: string | null;
+        customer_name: string;
+        total: string;
+        status: string;
+        payment_method: string;
         created_at: Date;
       }>(`
-        SELECT u.id, u.fullname, u.username, u.email,
-               (u.email_verified AND u.closed_at IS NULL) AS verified,
-               u.created_at,
-               array_remove(array_agg(r.name), NULL) AS roles
-          FROM users u
-          LEFT JOIN user_roles ur ON ur.user_id = u.id
-          LEFT JOIN roles r ON r.id = ur.role_id
-         GROUP BY u.id
-         ORDER BY u.created_at DESC
+        SELECT id, number, customer_name, total, status, payment_method, created_at
+          FROM orders
+         ORDER BY created_at DESC, id DESC
          LIMIT 5
       `);
 
-      const [totalsResult, rolesResult, trendResult, recentResult, counts] = await Promise.all([
-        totalsQuery,
-        rolesQuery,
-        trendQuery,
-        recentQuery,
-        db
-          .select({
-            roles: sql<number>`(SELECT count(*)::int FROM roles)`,
-            permissions: sql<number>`(SELECT count(*)::int FROM permissions)`,
-          })
-          .from(sql`(SELECT 1) AS one`),
-      ]);
+      const [ordersResult, catalogResult, trendResult, statusResult, recentResult] =
+        await Promise.all([ordersQuery, catalogQuery, trendQuery, statusQuery, recentQuery]);
 
-      const totals = totalsResult.rows[0]!;
-      const number = (value: string) => Number.parseInt(value, 10);
+      const orders = ordersResult.rows[0]!;
+      const catalog = catalogResult.rows[0]!;
+      const count = (value: string | undefined) => Number.parseInt(value ?? "0", 10);
 
-      const totalUsers = number(totals.total);
-      const verifiedUsers = number(totals.verified);
-      const thisMonth = number(totals.this_month);
-      const lastMonth = number(totals.last_month);
+      const billable = count(orders.billable);
+      const revenue = Number(orders.revenue);
+      const revenueThisMonth = Number(orders.revenue_this_month);
+      const revenueLastMonth = Number(orders.revenue_last_month);
 
       const growthPercentage =
-        lastMonth > 0
-          ? Math.round(((thisMonth - lastMonth) / lastMonth) * 1000) / 10
-          : thisMonth > 0
+        revenueLastMonth > 0
+          ? Math.round(((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 1000) / 10
+          : revenueThisMonth > 0
             ? 100
             : 0;
 
+      const statusCounts = new Map(statusResult.rows.map((row) => [row.status, count(row.count)]));
+
       return ok(reply, {
         stats: {
-          total_users: totalUsers,
-          verified_users: verifiedUsers,
-          unverified_users: number(totals.unverified),
-          users_today: number(totals.today),
-          users_this_week: number(totals.this_week),
-          users_this_month: thisMonth,
-          users_last_month: lastMonth,
+          total_orders: count(orders.total),
+          pending_orders: count(orders.pending),
+          orders_today: count(orders.today),
+          orders_this_week: count(orders.this_week),
+          orders_this_month: count(orders.this_month),
+          orders_last_month: count(orders.last_month),
+          total_revenue: orders.revenue!,
+          revenue_this_month: orders.revenue_this_month!,
+          revenue_last_month: orders.revenue_last_month!,
           growth_percentage: growthPercentage,
-          total_roles: counts[0]?.roles ?? 0,
-          total_permissions: counts[0]?.permissions ?? 0,
-          verification_rate:
-            totalUsers > 0 ? Math.round((verifiedUsers / totalUsers) * 1000) / 10 : 0,
+          average_order_value: billable > 0 ? (revenue / billable).toFixed(2) : "0.00",
+          total_products: count(catalog.total_products),
+          active_products: count(catalog.active_products),
+          low_stock_products: count(catalog.low_stock_products),
+          total_categories: count(catalog.total_categories),
         },
-        roles_distribution: rolesResult.rows.map((row) => ({
-          name: roleLabel(row.name),
-          key: row.name,
-          count: number(row.count),
-        })),
-        account_statuses: (["verified", "unverified", "closed"] as const).map((status) => ({
+        // Always all five, with zeros — the chart keeps its legend when a shop
+        // has never cancelled anything.
+        order_statuses: ORDER_STATUSES.map((status) => ({
           status,
-          label: STATUS_LABELS[status]!,
-          count: number(totals[status]),
+          label: capitalize(status),
+          count: statusCounts.get(status) ?? 0,
         })),
-        registration_trend: trendResult.rows.map((row) => {
+        sales_trend: trendResult.rows.map((row) => {
           const [year, month] = row.month.split("-");
           return {
             date: `${MONTHS_ES[Number.parseInt(month!, 10) - 1]} ${year}`,
             month: row.month,
-            total: number(row.total),
-            verified: number(row.verified),
+            orders: count(row.orders),
+            revenue: row.revenue,
           };
         }),
-        recent_users: recentResult.rows.map((row) => ({
-          id: row.id,
-          fullname: row.fullname,
-          username: row.username,
-          email: row.email,
-          roles: row.roles ?? [],
-          verified: row.verified,
+        recent_orders: recentResult.rows.map((row) => ({
+          id: Number(row.id),
+          number: row.number,
+          customer_name: row.customer_name,
+          total: row.total,
+          status: row.status,
+          payment_method: row.payment_method,
           created_at: row.created_at.toISOString(),
         })),
       });
     },
   );
+
+  await Promise.resolve();
 }

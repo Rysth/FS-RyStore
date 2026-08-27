@@ -23,6 +23,7 @@ import { registerProductRoutes } from "./routes/products.ts";
 import { registerProfileRoutes } from "./routes/profile.ts";
 import { registerPromotionRoutes } from "./routes/promotions.ts";
 import { registerPublicRoutes } from "./routes/public.ts";
+import { registerReportRoutes } from "./routes/reports.ts";
 import { registerUserRoutes } from "./routes/users.ts";
 
 export async function buildServer() {
@@ -100,6 +101,7 @@ export async function buildServer() {
   await registerOrderRoutes(app);
   await registerCouponRoutes(app);
   await registerCustomerRoutes(app);
+  await registerReportRoutes(app);
   await registerUserRoutes(app);
 
   app.setNotFoundHandler((request, reply) =>
