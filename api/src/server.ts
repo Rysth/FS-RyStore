@@ -12,8 +12,11 @@ import { RATE_LIMITS } from "./middleware/rate-limit.ts";
 import { registerAuthRoutes } from "./routes/auth.ts";
 import { registerBusinessRoutes } from "./routes/businesses.ts";
 import { registerCategoryRoutes } from "./routes/categories.ts";
+import { registerCouponRoutes } from "./routes/coupons.ts";
+import { registerCustomerRoutes } from "./routes/customers.ts";
 import { registerDashboardRoutes } from "./routes/dashboard.ts";
 import { registerMeRoutes } from "./routes/me.ts";
+import { registerOrderRoutes } from "./routes/orders.ts";
 import { registerPermissionRoutes } from "./routes/permissions.ts";
 import { registerProductRoutes } from "./routes/products.ts";
 import { registerProfileRoutes } from "./routes/profile.ts";
@@ -66,6 +69,9 @@ export async function buildServer() {
   await registerCategoryRoutes(app);
   await registerProductRoutes(app);
   await registerPromotionRoutes(app);
+  await registerOrderRoutes(app);
+  await registerCouponRoutes(app);
+  await registerCustomerRoutes(app);
   await registerUserRoutes(app);
 
   app.setNotFoundHandler((request, reply) =>
