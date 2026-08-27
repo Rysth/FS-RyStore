@@ -3,8 +3,15 @@ import {
   cleanupExpiredSessions,
   cleanupExpiredVerifications,
   handleEmail,
+  handleOrderNotification,
 } from "./handlers.ts";
-import { getBoss, QUEUES, shutdownQueue, type EmailJob } from "./queue.ts";
+import {
+  getBoss,
+  QUEUES,
+  shutdownQueue,
+  type EmailJob,
+  type OrderNotificationJob,
+} from "./queue.ts";
 
 /**
  * Worker entrypoint, replacing `bundle exec bin/jobs` (Solid Queue).
@@ -20,6 +27,15 @@ async function main(): Promise<void> {
     for (const job of jobs) {
       await handleEmail(job.data);
       console.log(`[jobs] correo enviado: ${job.data.type} -> ${job.data.to}`);
+    }
+  });
+
+  await boss.work<OrderNotificationJob>(QUEUES.orderNotification, { batchSize: 5 }, async (jobs) => {
+    for (const job of jobs) {
+      const sent = await handleOrderNotification(job.data);
+      console.log(
+        `[jobs] aviso de pedido ${job.data.orderId} (${job.data.event}): ${sent ? "enviado" : "omitido"}`,
+      );
     }
   });
 
@@ -40,7 +56,7 @@ async function main(): Promise<void> {
   await boss.schedule(QUEUES.cleanupVerifications, "0 * * * *");
   await boss.schedule(QUEUES.cleanupSessions, "30 3 * * *");
 
-  console.log("[jobs] worker listo: correo + limpiezas programadas");
+  console.log("[jobs] worker listo: correo, avisos de pedidos y limpiezas programadas");
 }
 
 const shutdown = async (signal: string) => {

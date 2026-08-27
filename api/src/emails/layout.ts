@@ -125,3 +125,75 @@ export function escapeHtml(value: string): string {
 function escapeAttr(value: string): string {
   return escapeHtml(value);
 }
+
+/**
+ * Grey definition panel — the "Cliente" block of the order emails.
+ * Rows are `[label, value]`; the value is pre-escaped by the caller when it
+ * carries markup (a `tel:` link), plain otherwise.
+ */
+export function panel(heading: string | null, rows: Array<[string, string]>): string {
+  const items = rows
+    .map(
+      ([label, value]) =>
+        `<p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:${COLORS.bodyText};font-family:${FONT_STACK};"><strong style="color:${COLORS.text};">${escapeHtml(label)}:</strong> ${value}</p>`,
+    )
+    .join("");
+
+  const title = heading
+    ? `<h2 style="margin:0 0 12px;font-size:15px;font-weight:700;color:${COLORS.text};font-family:${FONT_STACK};">${escapeHtml(heading)}</h2>`
+    : "";
+
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;background-color:${COLORS.page};border-radius:10px;">
+<tr><td style="padding:18px 20px;">${title}${items}</td></tr>
+</table>`;
+}
+
+/**
+ * Order lines. A real <table> rather than styled divs: it is tabular data, and
+ * a phone client that ignores the styling still renders it as a table.
+ */
+export function itemsTable(
+  rows: Array<{ name: string; detail?: string | null; quantity: number; unitPrice: string; subtotal: string }>,
+  total: string,
+): string {
+  const head = `<tr>
+<th align="left" style="padding:0 0 8px;border-bottom:1px solid ${COLORS.border};font-size:12px;font-weight:600;color:${COLORS.muted};font-family:${FONT_STACK};">Producto</th>
+<th align="center" style="padding:0 0 8px;border-bottom:1px solid ${COLORS.border};font-size:12px;font-weight:600;color:${COLORS.muted};font-family:${FONT_STACK};">Cant.</th>
+<th align="right" style="padding:0 0 8px;border-bottom:1px solid ${COLORS.border};font-size:12px;font-weight:600;color:${COLORS.muted};font-family:${FONT_STACK};">P. unit.</th>
+<th align="right" style="padding:0 0 8px;border-bottom:1px solid ${COLORS.border};font-size:12px;font-weight:600;color:${COLORS.muted};font-family:${FONT_STACK};">Subtotal</th>
+</tr>`;
+
+  const body = rows
+    .map((row) => {
+      // The variant label or a combo's contents, under the product name — it is
+      // what tells the shop which size to pull off the shelf.
+      const detail = row.detail
+        ? `<br><span style="font-size:12px;color:${COLORS.muted};">${escapeHtml(row.detail)}</span>`
+        : "";
+      return `<tr>
+<td align="left" style="padding:10px 0;border-bottom:1px solid ${COLORS.border};font-size:14px;color:${COLORS.bodyText};font-family:${FONT_STACK};">${escapeHtml(row.name)}${detail}</td>
+<td align="center" style="padding:10px 0;border-bottom:1px solid ${COLORS.border};font-size:14px;color:${COLORS.bodyText};font-family:${FONT_STACK};">${row.quantity}</td>
+<td align="right" style="padding:10px 0;border-bottom:1px solid ${COLORS.border};font-size:14px;color:${COLORS.bodyText};font-family:${FONT_STACK};">$${escapeHtml(row.unitPrice)}</td>
+<td align="right" style="padding:10px 0;border-bottom:1px solid ${COLORS.border};font-size:14px;color:${COLORS.bodyText};font-family:${FONT_STACK};">$${escapeHtml(row.subtotal)}</td>
+</tr>`;
+    })
+    .join("");
+
+  const foot = `<tr>
+<td colspan="3" align="right" style="padding:14px 0 0;font-size:14px;font-weight:600;color:${COLORS.text};font-family:${FONT_STACK};">Total</td>
+<td align="right" style="padding:14px 0 0;font-size:17px;font-weight:700;color:${COLORS.text};font-family:${FONT_STACK};">$${escapeHtml(total)}</td>
+</tr>`;
+
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0 0 22px;border-collapse:collapse;">
+<thead>${head}</thead>
+<tbody>${body}</tbody>
+<tfoot>${foot}</tfoot>
+</table>`;
+}
+
+/** Highlighted aside — "te avisaremos cuando suba el comprobante". */
+export function notice(text: string): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;background-color:#fef9e7;border-radius:10px;">
+<tr><td style="padding:14px 18px;font-size:13px;line-height:1.6;color:#8a6d1f;font-family:${FONT_STACK};">${escapeHtml(text)}</td></tr>
+</table>`;
+}
