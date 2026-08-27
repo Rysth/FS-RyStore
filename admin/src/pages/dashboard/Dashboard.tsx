@@ -7,7 +7,8 @@ import { StatsCards } from "./components/StatsCards";
 import { ChartsTrendRow } from "./components/ChartsTrendRow";
 import { ActivityFeed, type Activity } from "./components/ActivityFeed";
 import { StatusDistribution } from "./components/StatusDistribution";
-import { RecentUsersList } from "./components/RecentUsersList";
+import { RecentOrdersList } from "./components/RecentOrdersList";
+import { CatalogHealthChart } from "./components/CatalogHealthChart";
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -54,9 +55,9 @@ export default function Dashboard() {
   const { user } = useAuthStore();
   const {
     stats,
-    accountStatuses,
-    registrationTrend,
-    recentUsers,
+    orderStatuses,
+    salesTrend,
+    recentOrders,
     isLoading,
     error,
     fetchDashboard,
@@ -66,58 +67,45 @@ export default function Dashboard() {
     fetchDashboard();
   }, [fetchDashboard]);
 
-  const trendChartData = useMemo(
+  const salesChartData = useMemo(
     () =>
-      (registrationTrend ?? []).map((t) => ({
+      (salesTrend ?? []).map((t) => ({
         date: t.date,
-        Total: t.total,
-        Verificados: t.verified,
+        Ingresos: Number(t.revenue),
+        Pedidos: t.orders,
       })),
-    [registrationTrend],
-  );
-
-  const statusChartData = useMemo(
-    () =>
-      (accountStatuses ?? []).map((s) => ({
-        name: s.label,
-        value: s.count,
-      })),
-    [accountStatuses],
+    [salesTrend],
   );
 
   const activities: Activity[] = useMemo(() => {
-    const items: Activity[] = [];
-    (recentUsers ?? []).slice(0, 3).forEach((u) => {
-      if (u.verified) {
-        items.push({
-          id: `act-ver-${u.id}`,
-          type: "verification",
-          title: "Usuario verificado",
-          description: `${u.fullname} fue verificada`,
-          time: timeAgo(u.created_at),
-        });
-      } else {
-        items.push({
-          id: `act-reg-${u.id}`,
-          type: "registration",
-          title: "Nuevo usuario registrado",
-          description: `${u.fullname} se registró en el sistema`,
-          time: timeAgo(u.created_at),
-        });
+    return (recentOrders ?? []).slice(0, 4).map((o) => {
+      if (o.status === "entregado") {
+        return {
+          id: `act-del-${o.id}`,
+          type: "delivered" as const,
+          title: "Pedido entregado",
+          description: `${o.number} de ${o.customer_name}`,
+          time: timeAgo(o.created_at),
+        };
       }
+      if (o.status === "cancelado") {
+        return {
+          id: `act-can-${o.id}`,
+          type: "cancelled" as const,
+          title: "Pedido cancelado",
+          description: `${o.number} de ${o.customer_name}`,
+          time: timeAgo(o.created_at),
+        };
+      }
+      return {
+        id: `act-new-${o.id}`,
+        type: "new_order" as const,
+        title: "Nuevo pedido recibido",
+        description: `${o.number} de ${o.customer_name}`,
+        time: timeAgo(o.created_at),
+      };
     });
-    // Add a generic system activity at the end
-    if (items.length > 0) {
-      items.push({
-        id: "act-sys-1",
-        type: "system",
-        title: "Nuevo registro creado",
-        description: "Se creó un nuevo registro en el sistema",
-        time: "Hace 2h",
-      });
-    }
-    return items;
-  }, [recentUsers]);
+  }, [recentOrders]);
 
   if (isLoading && !stats) return <DashboardSkeleton />;
 
@@ -146,16 +134,21 @@ export default function Dashboard() {
 
       <StatsCards stats={stats} formatNumber={(n) => n.toLocaleString("es")} />
 
-      <ChartsTrendRow trendChartData={trendChartData} />
+      <ChartsTrendRow salesChartData={salesChartData} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ActivityFeed activities={activities} />
         <StatusDistribution
-          data={statusChartData}
-          total={stats.total_users}
-          statuses={accountStatuses ?? []}
+          total={stats.total_orders}
+          statuses={orderStatuses ?? []}
         />
-        <RecentUsersList users={recentUsers ?? []} timeAgo={timeAgo} />
+        <CatalogHealthChart stats={stats} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <RecentOrdersList orders={recentOrders ?? []} timeAgo={timeAgo} />
+        </div>
       </div>
     </div>
   );

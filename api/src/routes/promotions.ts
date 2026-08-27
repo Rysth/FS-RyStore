@@ -6,7 +6,7 @@ import { promotions } from "../db/schema.ts";
 import { PERMISSION_KEYS } from "../db/seed.ts";
 import { requirePermission } from "../middleware/authorize.ts";
 import { fail, ok } from "../lib/response.ts";
-import { parseOrFail } from "../lib/validation.ts";
+import { booleanInput, parseOrFail } from "../lib/validation.ts";
 import { fileNamed, readMultipart, truthy, unwrap } from "../lib/multipart.ts";
 import { IMAGE_CONTENT_TYPES } from "../lib/images.ts";
 import {
@@ -56,7 +56,7 @@ const promotionSchema = z.object({
   name: z.string().optional(),
   description: z.string().nullish(),
   price: z.union([z.string(), z.number()]).optional(),
-  active: z.boolean().optional(),
+  active: booleanInput.optional(),
   position: z.coerce.number().int().min(0).optional(),
   starts_at: dateInput.optional(),
   ends_at: dateInput.optional(),

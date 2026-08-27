@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import api from "../utils/api";
-import { apiErrorList, apiErrorMessage } from "../utils/apiError";
+import { apiErrorMessage } from "../utils/apiError";
 
-interface Business {
+export interface Business {
   id: number;
   name: string;
   slogan: string;
@@ -11,6 +11,14 @@ interface Business {
   instagram: string;
   facebook: string;
   tiktok: string;
+  address?: string | null;
+  maps_url?: string | null;
+  delivery_notes?: string | null;
+  bank_instructions?: string | null;
+  primary_color?: string | null;
+  notification_email?: string | null;
+  /** False while the storefront is offline for rework. */
+  published?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -22,6 +30,13 @@ interface BusinessData {
   instagram?: string;
   facebook?: string;
   tiktok?: string;
+  address?: string;
+  maps_url?: string;
+  delivery_notes?: string;
+  bank_instructions?: string;
+  primary_color?: string;
+  notification_email?: string;
+  published?: boolean;
 }
 
 interface BusinessState {
@@ -135,9 +150,10 @@ export const useBusinessStore = create<BusinessState>((set, get) => ({
       }
       throw new Error("Error al actualizar configuración del negocio");
     } catch (error: unknown) {
-      const message =
-        apiErrorList(error)?.join(", ") ||
-        apiErrorMessage(error, "Error al actualizar configuración del negocio");
+      const message = apiErrorMessage(
+        error,
+        "Error al actualizar configuración del negocio",
+      );
       set({ error: message, isLoading: false });
       throw new Error(message);
     }

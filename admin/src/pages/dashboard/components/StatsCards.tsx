@@ -1,17 +1,21 @@
 import { StatsCard } from "@/components/ui/stats-card";
-import { Users, ShieldCheck, Percent, CalendarDays } from "lucide-react";
+import { formatPrice } from "@/types/store";
+import { DollarSign, ShoppingCart, Receipt, Package } from "lucide-react";
 
 interface Stats {
-  total_users: number;
-  verified_users: number;
-  unverified_users: number;
-  users_today: number;
-  users_this_week: number;
-  users_this_month: number;
+  total_orders: number;
+  pending_orders: number;
+  orders_today: number;
+  orders_this_week: number;
+  orders_this_month: number;
+  total_revenue: string;
+  revenue_this_month: string;
   growth_percentage: number;
-  verification_rate: number;
-  total_roles: number;
-  total_permissions: number;
+  average_order_value: string;
+  total_products: number;
+  active_products: number;
+  low_stock_products: number;
+  total_categories: number;
 }
 
 interface StatsCardsProps {
@@ -25,9 +29,9 @@ export function StatsCards({ stats, formatNumber }: StatsCardsProps) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
       <StatsCard
-        title="Total Usuarios"
-        value={formatNumber(stats.total_users)}
-        icon={Users}
+        title="Ingresos del Mes"
+        value={formatPrice(stats.revenue_this_month)}
+        icon={DollarSign}
         iconColor="text-teal-600"
         iconBgColor="bg-teal-50"
         variant="colored"
@@ -36,52 +40,52 @@ export function StatsCards({ stats, formatNumber }: StatsCardsProps) {
           isPositive: growthPositive,
           label: "vs. mes anterior",
         }}
-        description={`${stats.users_this_month} registros este mes`}
+        description={`${stats.orders_this_month} pedidos este mes`}
       />
 
       <StatsCard
-        title="Usuarios Verificados"
-        value={formatNumber(stats.verified_users)}
-        icon={ShieldCheck}
+        title="Pedidos Totales"
+        value={formatNumber(stats.total_orders)}
+        icon={ShoppingCart}
         iconColor="text-emerald-600"
         iconBgColor="bg-emerald-50"
         variant="colored"
         trend={{
-          value: `${stats.verification_rate}%`,
-          isPositive: stats.verification_rate >= 50,
-          label: "tasa de verificación",
+          value: `${stats.pending_orders} pendientes`,
+          isPositive: stats.pending_orders === 0,
+          label: "",
         }}
-        description={`${stats.unverified_users} sin verificar`}
+        description={`${stats.orders_today} hoy · ${stats.orders_this_week} esta semana`}
       />
 
       <StatsCard
-        title="Tasa de Verificación"
-        value={`${stats.verification_rate}%`}
-        icon={Percent}
+        title="Ticket Promedio"
+        value={formatPrice(stats.average_order_value)}
+        icon={Receipt}
         iconColor="text-amber-600"
         iconBgColor="bg-amber-50"
         variant="colored"
         trend={{
-          value: `${stats.verified_users}/${stats.total_users}`,
-          isPositive: stats.verification_rate >= 70,
-          label: "verificados",
+          value: formatPrice(stats.total_revenue),
+          isPositive: true,
+          label: "ingresos totales",
         }}
-        description={`${stats.total_roles} roles · ${stats.total_permissions} permisos`}
+        description="Por pedido no cancelado"
       />
 
       <StatsCard
-        title="Registros Hoy"
-        value={stats.users_today}
-        icon={CalendarDays}
+        title="Catálogo"
+        value={formatNumber(stats.total_products)}
+        icon={Package}
         iconColor="text-violet-600"
         iconBgColor="bg-violet-50"
         variant="colored"
         trend={{
-          value: `${stats.users_this_week} esta semana`,
-          isPositive: stats.users_today > 0,
+          value: `${stats.low_stock_products} con stock bajo`,
+          isPositive: stats.low_stock_products === 0,
           label: "",
         }}
-        description={`${stats.users_this_month} este mes`}
+        description={`${stats.total_categories} categorías · ${stats.active_products} activos`}
       />
     </div>
   );

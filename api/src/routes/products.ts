@@ -7,7 +7,7 @@ import type { OptionType } from "../db/schema.ts";
 import { PERMISSION_KEYS } from "../db/seed.ts";
 import { requirePermission } from "../middleware/authorize.ts";
 import { fail, ok } from "../lib/response.ts";
-import { paginationInput, parseOrFail } from "../lib/validation.ts";
+import { booleanInput, paginationInput, parseOrFail } from "../lib/validation.ts";
 import { fileNamed, readMultipart, truthy, unwrap } from "../lib/multipart.ts";
 import { IMAGE_CONTENT_TYPES, VIDEO_CONTENT_TYPES } from "../lib/images.ts";
 import {
@@ -71,7 +71,7 @@ const productSchema = z.object({
   price: z.union([z.string(), z.number()]).optional(),
   compare_at_price: z.union([z.string(), z.number()]).nullish(),
   category_id: z.coerce.number().int().nullish(),
-  active: z.boolean().optional(),
+  active: booleanInput.optional(),
   stock: z.coerce.number().int().nullish(),
   kind: z.string().optional(),
   price_tiers: z.array(z.record(z.unknown())).optional(),

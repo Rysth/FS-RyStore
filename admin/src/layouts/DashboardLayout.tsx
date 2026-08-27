@@ -15,15 +15,24 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
+import { ExternalLink, Store } from "lucide-react";
 import LogoutModal from "../components/shared/LogoutModal";
 import AppSidebar from "../components/navigation/AppSidebar";
+import { useBusinessStore } from "../stores/businessStore";
 import { Permissions } from "../types/auth";
 import { getDefaultAdminRoute } from "../utils/adminRoutes";
+import { STOREFRONT_URL } from "../utils/storefront";
 
 export default function DashboardLayout() {
   const { user, hasPermission, hasAnyPermission } = useAuthStore();
+  const { business, publicBusiness } = useBusinessStore();
   const location = useLocation();
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+
+  // `business` is the owner payload, loaded once Ajustes has been opened;
+  // `publicBusiness` is the cached one the sidebar already reads. Defaulting to
+  // published means the badge never claims the store is down before it knows.
+  const isPublished = (business ?? publicBusiness)?.published !== false;
 
   useEffect(() => {
     document.body.classList.add("dashboard-theme");
@@ -33,30 +42,86 @@ export default function DashboardLayout() {
     };
   }, []);
 
+  const logoUrl = business?.logo_url || publicBusiness?.logo_url;
+
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    if (!link) return;
+
+    if (logoUrl) {
+      const prevHref = link.href;
+      const prevType = link.type;
+      link.href = logoUrl;
+      link.type = "";
+      return () => {
+        link.href = prevHref;
+        link.type = prevType;
+      };
+    }
+  }, [logoUrl]);
+
   // User needs at least view_dashboard permission to access the layout
   const hasAccess = hasAnyPermission(
     Permissions.VIEW_DASHBOARD,
     Permissions.VIEW_USERS,
     Permissions.VIEW_BUSINESS,
     Permissions.EDIT_PROFILE,
+    Permissions.VIEW_CATALOG,
+    Permissions.VIEW_ORDERS,
+    Permissions.VIEW_COUPONS,
+    Permissions.VIEW_CONTACTS,
+    Permissions.VIEW_REPORTS,
   );
   const canManageUsers = hasPermission(Permissions.VIEW_USERS);
+  const canViewCatalog = hasAnyPermission(
+    Permissions.VIEW_CATALOG,
+    Permissions.MANAGE_CATALOG,
+  );
+  const canViewOrders = hasAnyPermission(
+    Permissions.VIEW_ORDERS,
+    Permissions.MANAGE_ORDERS,
+  );
+  const canViewCoupons = hasAnyPermission(
+    Permissions.VIEW_COUPONS,
+    Permissions.MANAGE_COUPONS,
+  );
+  const canViewContacts = hasAnyPermission(
+    Permissions.VIEW_CONTACTS,
+    Permissions.MANAGE_CONTACTS,
+  );
+  const canViewReports = hasPermission(Permissions.VIEW_REPORTS);
   const defaultRoute = getDefaultAdminRoute({
     user,
     hasPermission,
     hasAnyPermission,
   });
 
-  // Generate breadcrumbs based on current path
+  // Longest prefix wins, so the form routes under products/ and orders/ get
+  // their own label instead of falling through to the dashboard default — which
+  // is what exact matching did once creating and editing became pages.
+  const BREADCRUMBS: { prefix: string; section: string; page: string }[] = [
+    { prefix: "/dashboard/products/new", section: "Tienda", page: "Nuevo producto" },
+    { prefix: "/dashboard/products", section: "Tienda", page: "Productos" },
+    { prefix: "/dashboard/orders/new", section: "Tienda", page: "Nuevo pedido" },
+    { prefix: "/dashboard/orders", section: "Tienda", page: "Pedidos" },
+    { prefix: "/dashboard/categories", section: "Tienda", page: "Categorías" },
+    { prefix: "/dashboard/coupons", section: "Tienda", page: "Cupones" },
+    { prefix: "/dashboard/contacts", section: "Tienda", page: "Contactos" },
+    { prefix: "/dashboard/reports", section: "Dashboard", page: "Reportes" },
+    { prefix: "/dashboard/users", section: "Dashboard", page: "Usuarios" },
+    { prefix: "/dashboard/settings", section: "Dashboard", page: "Configuración" },
+  ];
+
   const getBreadcrumbs = () => {
     const path = location.pathname;
-    if (path === "/dashboard") {
-      return { section: "Dashboard", page: "Panel de Control" };
-    } else if (path === "/dashboard/users") {
-      return { section: "Dashboard", page: "Usuarios" };
-    } else if (path === "/dashboard/settings") {
-      return { section: "Dashboard", page: "Configuración" };
-    }
+
+    // "/dashboard/products/12/edit" has no prefix of its own; it shares the
+    // catalog's, and the page's own heading says which product it is.
+    const match = [...BREADCRUMBS]
+      .sort((a, b) => b.prefix.length - a.prefix.length)
+      .find((entry) => path === entry.prefix || path.startsWith(`${entry.prefix}/`));
+
+    if (match) return { section: match.section, page: match.page };
     return { section: "Dashboard", page: "Panel de Control" };
   };
 
@@ -76,6 +141,11 @@ export default function DashboardLayout() {
         <AppSidebar
           user={user}
           canManageUsers={canManageUsers}
+          canViewCatalog={canViewCatalog}
+          canViewOrders={canViewOrders}
+          canViewCoupons={canViewCoupons}
+          canViewContacts={canViewContacts}
+          canViewReports={canViewReports}
           setLogoutModalOpen={setLogoutModalOpen}
         />
         <SidebarInset>
@@ -103,6 +173,38 @@ export default function DashboardLayout() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
+
+            {/* Moved out of the sidebar: this leaves the panel for the public
+                storefront, which is a separate origin, so it is a plain anchor.
+                It carries the live/offline state because that is the thing the
+                shop needs to see from every page, not only from Ajustes. */}
+            <a
+              href={STOREFRONT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                isPublished
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
+                  : "border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-400"
+              }`}
+              title={
+                isPublished
+                  ? "La tienda está en vivo. Abrir en una pestaña nueva"
+                  : "La tienda está fuera de línea para tus clientes. Abrir en una pestaña nueva"
+              }
+            >
+              <span
+                aria-hidden="true"
+                className={`size-1.5 rounded-full ${
+                  isPublished ? "bg-emerald-500" : "bg-amber-500"
+                }`}
+              />
+              <Store className="size-3.5" />
+              <span className="hidden sm:inline">
+                {isPublished ? "Tienda en vivo" : "Tienda fuera de línea"}
+              </span>
+              <ExternalLink className="size-3" />
+            </a>
           </header>
           <div className="mx-auto flex w-full flex-1 flex-col gap-6 px-4 py-4 md:px-6 md:py-6">
             <Outlet />

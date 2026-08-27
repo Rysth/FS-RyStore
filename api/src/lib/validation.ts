@@ -40,6 +40,22 @@ export const rolesInput = z
   )
   .optional();
 
+/**
+ * A boolean that survives a multipart body.
+ *
+ * `z.coerce.boolean()` is `Boolean(value)`, so the string "false" — which is
+ * exactly what FormData sends for an unchecked switch — coerces to **true**.
+ * A shop unpublishing its store, or un-featuring a category, would silently get
+ * the opposite of what it clicked.
+ */
+export const booleanInput = z
+  .union([z.boolean(), z.string(), z.number()])
+  .transform((value) => {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value !== 0;
+    return ["true", "1", "on", "yes"].includes(value.trim().toLowerCase());
+  });
+
 export const paginationInput = z.object({
   page: z.coerce.number().int().min(1).default(1),
   per_page: z.coerce.number().int().min(1).max(100).default(12),

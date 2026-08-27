@@ -6,7 +6,7 @@ import { categories } from "../db/schema.ts";
 import { PERMISSION_KEYS } from "../db/seed.ts";
 import { requirePermission } from "../middleware/authorize.ts";
 import { fail, ok } from "../lib/response.ts";
-import { parseOrFail } from "../lib/validation.ts";
+import { booleanInput, parseOrFail } from "../lib/validation.ts";
 import { fileNamed, readMultipart, truthy, unwrap } from "../lib/multipart.ts";
 import { IMAGE_CONTENT_TYPES } from "../lib/images.ts";
 import {
@@ -37,8 +37,8 @@ const IMAGE_ERRORS = {
 
 const categorySchema = z.object({
   name: z.string().trim().min(1, "es requerido").max(MAX_NAME_LENGTH, `no puede tener más de ${MAX_NAME_LENGTH} caracteres`).optional(),
-  active: z.coerce.boolean().optional(),
-  featured: z.coerce.boolean().optional(),
+  active: booleanInput.optional(),
+  featured: booleanInput.optional(),
   position: z.coerce.number().int().min(0).optional(),
 });
 

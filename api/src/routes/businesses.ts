@@ -4,7 +4,7 @@ import { requirePermission } from "../middleware/authorize.ts";
 import { PERMISSION_KEYS } from "../db/seed.ts";
 import { getBusiness, updateBusiness } from "../services/business.ts";
 import { serializeBusiness } from "../lib/serializers.ts";
-import { parseOrFail } from "../lib/validation.ts";
+import { booleanInput, parseOrFail } from "../lib/validation.ts";
 import { fail, ok } from "../lib/response.ts";
 import {
   deleteObject,
@@ -85,7 +85,7 @@ const businessSchema = z.object({
     .email("debe ser un correo válido")
     .or(z.literal(""))
     .nullish(),
-  published: z.coerce.boolean().optional(),
+  published: booleanInput.optional(),
 });
 
 /**

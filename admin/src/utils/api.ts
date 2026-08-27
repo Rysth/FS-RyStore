@@ -20,6 +20,20 @@ const api = axios.create({
 });
 
 /**
+ * A FormData body must set its own Content-Type, because the boundary is part
+ * of it (`multipart/form-data; boundary=----WebKitFormBoundary...`). The
+ * instance default would override it with `application/json` and the server
+ * would fail to parse a body it cannot find the parts of — which is what every
+ * product image, gallery batch and video upload sends.
+ */
+api.interceptors.request.use((config) => {
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
+  return config;
+});
+
+/**
  * Endpoints that legitimately answer 401 without the session being gone, so a
  * 401 here must not force a logout.
  *

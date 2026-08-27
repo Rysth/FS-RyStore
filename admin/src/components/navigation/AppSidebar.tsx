@@ -8,6 +8,13 @@ import {
   LogOut,
   ChevronsUpDown,
   ChevronRight,
+  Package,
+  Tags,
+  Gift,
+  ShoppingBag,
+  Tag,
+  Contact,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -47,6 +54,11 @@ import logo from "../../assets/logo.svg";
 interface AppSidebarProps {
   user: User;
   canManageUsers: boolean;
+  canViewCatalog: boolean;
+  canViewOrders: boolean;
+  canViewCoupons: boolean;
+  canViewContacts: boolean;
+  canViewReports: boolean;
   setLogoutModalOpen: (open: boolean) => void;
 }
 
@@ -68,6 +80,11 @@ const activeMenuClasses =
 export default function AppSidebar({
   user,
   canManageUsers,
+  canViewCatalog,
+  canViewOrders,
+  canViewCoupons,
+  canViewContacts,
+  canViewReports,
   setLogoutModalOpen,
 }: AppSidebarProps) {
   // Fetch business data so we can show logo + name (cached in store)
@@ -113,7 +130,7 @@ export default function AppSidebar({
                   {publicBusiness?.logo_url ? (
                     <img
                       src={publicBusiness.logo_url}
-                      alt={`Logo ${publicBusiness?.name || "MicroBiz"}`}
+                      alt={`Logo ${publicBusiness?.name || "RyStore"}`}
                       className="size-5 object-contain"
                     />
                   ) : (
@@ -122,10 +139,10 @@ export default function AppSidebar({
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">
-                    {publicBusiness?.name || "MicroBiz"}
+                    {publicBusiness?.name || "RyStore"}
                   </span>
                   <span className="truncate text-xs text-sidebar-foreground/70">
-                    Dashboard
+                    Administración
                   </span>
                 </div>
               </NavLink>
@@ -154,6 +171,148 @@ export default function AppSidebar({
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
+              {canViewOrders ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Pedidos"
+                    isActive={isActiveRoute("/dashboard/orders")}
+                    className={activeMenuClasses}
+                  >
+                    <NavLink to="/dashboard/orders">
+                      <ShoppingBag />
+                      <span>Pedidos</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Catálogo groups everything that shapes what's for sale — products,
+            categories, and the discount codes that apply to them — so the flat
+            item list doesn't grow one row per feature added to the shop. */}
+        {(canViewCatalog || canViewCoupons) && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Catálogo</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {canViewCatalog ? (
+                  <>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip="Productos"
+                        isActive={isActiveRoute("/dashboard/products")}
+                        className={activeMenuClasses}
+                      >
+                        <NavLink to="/dashboard/products">
+                          <Package />
+                          <span>Productos</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip="Categorías"
+                        isActive={isActiveRoute("/dashboard/categories")}
+                        className={activeMenuClasses}
+                      >
+                        <NavLink to="/dashboard/categories">
+                          <Tags />
+                          <span>Categorías</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip="Combos"
+                        isActive={isActiveRoute("/dashboard/promotions")}
+                        className={activeMenuClasses}
+                      >
+                        <NavLink to="/dashboard/promotions">
+                          <Gift />
+                          <span>Combos</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </>
+                ) : null}
+
+                {canViewCoupons ? (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Cupones"
+                      isActive={isActiveRoute("/dashboard/coupons")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/coupons">
+                        <Tag />
+                        <span>Cupones</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ) : null}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Clientes groups who's buying and what that adds up to. */}
+        {(canViewContacts || canViewReports) && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Clientes</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {canViewContacts ? (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Contactos"
+                      isActive={isActiveRoute("/dashboard/contacts")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/contacts">
+                        <Contact />
+                        <span>Contactos</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ) : null}
+
+                {canViewReports ? (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Reportes"
+                      isActive={isActiveRoute("/dashboard/reports")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/reports">
+                        <BarChart3 />
+                        <span>Reportes</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ) : null}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {/* "Ver tienda" moved to the header badge in DashboardLayout: it
+                  is a link out of the panel, not a section of it, and the header
+                  is where the store's live/unpublished state belongs. */}
 
               {/* When collapsed: dropdown menu so sub-items remain accessible */}
               {isCollapsed ? (

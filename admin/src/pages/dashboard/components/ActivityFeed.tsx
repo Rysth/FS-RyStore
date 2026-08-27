@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserPlus, CheckCircle2, FilePlus } from "lucide-react";
+import { ShoppingCart, CheckCircle2, XCircle } from "lucide-react";
 
 export interface Activity {
   id: string;
-  type: "registration" | "verification" | "system";
+  type: "new_order" | "delivered" | "cancelled";
   title: string;
   description: string;
   time: string;
@@ -14,9 +14,9 @@ interface ActivityFeedProps {
 }
 
 const iconMap = {
-  registration: { icon: UserPlus, bg: "bg-emerald-50", color: "text-emerald-600" },
-  verification: { icon: CheckCircle2, bg: "bg-amber-50", color: "text-amber-600" },
-  system: { icon: FilePlus, bg: "bg-violet-50", color: "text-violet-600" },
+  new_order: { icon: ShoppingCart, bg: "bg-emerald-50", color: "text-emerald-600" },
+  delivered: { icon: CheckCircle2, bg: "bg-teal-50", color: "text-teal-600" },
+  cancelled: { icon: XCircle, bg: "bg-rose-50", color: "text-rose-600" },
 };
 
 export function ActivityFeed({ activities }: ActivityFeedProps) {

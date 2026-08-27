@@ -23,6 +23,16 @@ export function getDefaultAdminRoute({
     return "/dashboard/users";
   }
 
+  // An operator lands on Pedidos: it is the screen they spend the day in, and
+  // they have no dashboard permission to fall back on.
+  if (hasAnyPermission(Permissions.VIEW_ORDERS, Permissions.MANAGE_ORDERS)) {
+    return "/dashboard/orders";
+  }
+
+  if (hasAnyPermission(Permissions.VIEW_CATALOG, Permissions.MANAGE_CATALOG)) {
+    return "/dashboard/products";
+  }
+
   if (
     hasAnyPermission(
       Permissions.EDIT_PROFILE,

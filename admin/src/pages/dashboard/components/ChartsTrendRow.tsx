@@ -31,22 +31,22 @@ function ChartFallback() {
 }
 
 interface ChartsTrendRowProps {
-  trendChartData: { date: string; Total: number; Verificados: number }[];
+  salesChartData: { date: string; Ingresos: number; Pedidos: number }[];
 }
 
 export function ChartsTrendRow({
-  trendChartData,
+  salesChartData,
 }: ChartsTrendRowProps) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {/* Registration Trend - Area Chart */}
+      {/* Revenue Trend - Area Chart */}
       <Card className="shadow-sm">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
             <div>
-              <CardTitle className="text-base font-semibold">Tendencia de Registros</CardTitle>
+              <CardTitle className="text-base font-semibold">Tendencia de Ingresos</CardTitle>
               <CardDescription className="mt-0.5">
-                Total de registros en los últimos 6 meses
+                Ingresos totales en los últimos 6 meses
               </CardDescription>
             </div>
             <div className="flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground">
@@ -59,24 +59,26 @@ export function ChartsTrendRow({
           <Suspense fallback={<ChartFallback />}>
             <AreaChart
               className="h-72"
-              data={trendChartData}
+              data={salesChartData}
               index="date"
-              categories={["Total"]}
+              categories={["Ingresos"]}
               colors={["emerald"]}
-              valueFormatter={(n: number) => Intl.NumberFormat("es").format(n)}
+              valueFormatter={(n: number) =>
+                `$${Intl.NumberFormat("es").format(n)}`
+              }
             />
           </Suspense>
         </CardContent>
       </Card>
 
-      {/* Registration vs Verifications - Combo Chart */}
+      {/* Orders vs Revenue - Combo Chart */}
       <Card className="shadow-sm">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
             <div>
-              <CardTitle className="text-base font-semibold">Registros vs Verificaciones</CardTitle>
+              <CardTitle className="text-base font-semibold">Pedidos vs Ingresos</CardTitle>
               <CardDescription className="mt-0.5">
-                Comparación mensual de registros y verificaciones
+                Comparación mensual de pedidos e ingresos
               </CardDescription>
             </div>
             <div className="flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground">
@@ -88,18 +90,18 @@ export function ChartsTrendRow({
         <CardContent className="pt-2">
           <Suspense fallback={<ChartFallback />}>
             <ComboChart
-              data={trendChartData}
+              data={salesChartData}
               index="date"
               enableBiaxial={true}
               barSeries={{
-                categories: ["Total"],
-                yAxisLabel: "Total (Barras)",
+                categories: ["Pedidos"],
+                yAxisLabel: "Pedidos (Barras)",
                 colors: ["emerald"],
               }}
               lineSeries={{
-                categories: ["Verificados"],
+                categories: ["Ingresos"],
                 showYAxis: true,
-                yAxisLabel: "Verificados (Línea)",
+                yAxisLabel: "Ingresos (Línea)",
                 colors: ["teal"],
                 yAxisWidth: 50,
               }}

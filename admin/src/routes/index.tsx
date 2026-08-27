@@ -8,6 +8,17 @@ import DashboardLayout from "../layouts/DashboardLayout";
 import Dashboard from "../pages/dashboard/Dashboard";
 import UsersIndex from "../pages/dashboard/users/UsersIndex";
 import BusinessSettings from "../pages/dashboard/business/BusinessSettings";
+import ProductsIndex from "../pages/dashboard/catalog/ProductsIndex";
+import ProductForm from "../pages/dashboard/catalog/ProductForm";
+import CategoriesIndex from "../pages/dashboard/catalog/CategoriesIndex";
+import PromotionsIndex from "../pages/dashboard/catalog/PromotionsIndex";
+import OrdersIndex from "../pages/dashboard/orders/OrdersIndex";
+import OrderForm from "../pages/dashboard/orders/OrderForm";
+import OrderDetail from "../pages/dashboard/orders/OrderDetail";
+import CouponsIndex from "../pages/dashboard/coupons/CouponsIndex";
+import ContactsIndex from "../pages/dashboard/contacts/ContactsIndex";
+import ContactDetail from "../pages/dashboard/contacts/ContactDetail";
+import ReportsIndex from "../pages/dashboard/reports/ReportsIndex";
 import AuthSignIn from "../pages/auth/AuthSignIn";
 import AuthConfirm from "../pages/auth/AuthConfirm";
 import AuthForgotPassword from "../pages/auth/AuthForgotPassword";
@@ -88,6 +99,148 @@ export const router = createBrowserRouter([
             ]}
           >
             <BusinessSettings />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "products",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_CATALOG,
+              Permissions.MANAGE_CATALOG,
+            ]}
+          >
+            <ProductsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      // Creating and editing are pages, not dialogs, so they need routes of
+      // their own — and MANAGE_CATALOG alone, unlike the read-only list.
+      {
+        path: "products/new",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_CATALOG}>
+            <ProductForm />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "products/:id/edit",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_CATALOG}>
+            <ProductForm />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "categories",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_CATALOG,
+              Permissions.MANAGE_CATALOG,
+            ]}
+          >
+            <CategoriesIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        // Combos are part of the catalog, so they ride the catalog permissions
+        // rather than a pair of their own.
+        path: "promotions",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_CATALOG,
+              Permissions.MANAGE_CATALOG,
+            ]}
+          >
+            <PromotionsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "orders",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_ORDERS,
+              Permissions.MANAGE_ORDERS,
+            ]}
+          >
+            <OrdersIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "orders/new",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_ORDERS}>
+            <OrderForm />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        // After orders/new on purpose for readability; React Router ranks the
+        // static segment above the dynamic one regardless of order.
+        path: "orders/:id",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_ORDERS,
+              Permissions.MANAGE_ORDERS,
+            ]}
+          >
+            <OrderDetail />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "coupons",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_COUPONS,
+              Permissions.MANAGE_COUPONS,
+            ]}
+          >
+            <CouponsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "contacts",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_CONTACTS,
+              Permissions.MANAGE_CONTACTS,
+            ]}
+          >
+            <ContactsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "contacts/:id",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_CONTACTS,
+              Permissions.MANAGE_CONTACTS,
+            ]}
+          >
+            <ContactDetail />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "reports",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_REPORTS}>
+            <ReportsIndex />
           </ProtectedRoute>
         ),
       },

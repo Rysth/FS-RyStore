@@ -4,18 +4,28 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertCircle,
   Building2,
   ChevronRight,
+  EyeOff,
   Facebook,
+  Globe,
   Instagram,
   KeyRound,
+  Landmark,
   Loader2,
+  Mail,
+  MapPin,
+  Navigation,
+  Palette,
   Phone,
   Save,
   Share2,
   Shield,
+  Store as StoreIcon,
+  Truck,
   Upload,
   User,
 } from "lucide-react";
@@ -27,7 +37,7 @@ import { useAuthStore } from "../../../stores/authStore";
 import { useBusinessStore } from "../../../stores/businessStore";
 import { useProfileStore } from "../../../stores/profileStore";
 import { Permissions } from "../../../types/auth";
-import { apiErrorMessage } from "../../../utils/apiError";
+import { errorMessage } from "../../../utils/apiError";
 
 interface BusinessFormData {
   name: string;
@@ -36,6 +46,13 @@ interface BusinessFormData {
   instagram: string;
   facebook: string;
   tiktok: string;
+  address: string;
+  maps_url: string;
+  delivery_notes: string;
+  bank_instructions: string;
+  primary_color: string;
+  notification_email: string;
+  published: boolean;
   logo?: FileList;
 }
 
@@ -86,7 +103,8 @@ function parseWhatsapp(value?: string | null): { code: string; local: string } {
 }
 
 export default function BusinessSettings() {
-  const { user: currentUser, updateUser, hasPermission } = useAuthStore();
+  const { user: currentUser, updateUser, hasPermission } =
+    useAuthStore();
   const { business, isLoading, fetchBusiness, updateBusiness, error } =
     useBusinessStore();
   const {
@@ -120,6 +138,15 @@ export default function BusinessSettings() {
               instagram: business.instagram || "",
               facebook: business.facebook || "",
               tiktok: business.tiktok || "",
+              address: business.address || "",
+              maps_url: business.maps_url || "",
+              delivery_notes: business.delivery_notes || "",
+              bank_instructions: business.bank_instructions || "",
+              primary_color: business.primary_color || "#E11D48",
+              notification_email: business.notification_email || "",
+              // Undefined only before the API has answered; a store is live
+              // unless it says otherwise.
+              published: business.published !== false,
             };
           })()
         : undefined,
@@ -163,6 +190,7 @@ export default function BusinessSettings() {
     if (canManageBusiness) fetchBusiness();
   }, [fetchBusiness, canManageBusiness]);
 
+
   useEffect(() => {
     if (business?.logo_url) setPreview(business.logo_url);
   }, [business?.logo_url]);
@@ -196,11 +224,20 @@ export default function BusinessSettings() {
       formData.append("instagram", data.instagram || "");
       formData.append("facebook", data.facebook || "");
       formData.append("tiktok", data.tiktok || "");
+      formData.append("address", data.address || "");
+      formData.append("maps_url", data.maps_url || "");
+      formData.append("delivery_notes", data.delivery_notes || "");
+      formData.append("bank_instructions", data.bank_instructions || "");
+      formData.append("primary_color", data.primary_color || "");
+      formData.append("notification_email", data.notification_email || "");
+      // Multipart carries strings, so the boolean has to be spelled out for
+      // Rails' type casting on the other side.
+      formData.append("published", data.published ? "true" : "false");
       if (data.logo && data.logo[0]) formData.append("logo", data.logo[0]);
       await updateBusiness(formData);
-      toast.success("Configuración del negocio guardada");
-    } catch (error: unknown) {
-      toast.error(apiErrorMessage(error, "Error al guardar configuración"));
+      toast.success("Configuración de la tienda guardada");
+    } catch (error) {
+      toast.error(errorMessage(error, "Error al guardar configuración"));
     }
   };
 
@@ -212,8 +249,8 @@ export default function BusinessSettings() {
       updateUser({ ...currentUser!, ...updatedUser });
       toast.success("Perfil actualizado exitosamente");
       setTimeout(() => setIsProfileCooldown(false), 3000);
-    } catch (error: unknown) {
-      toast.error(apiErrorMessage(error, "Error al actualizar perfil"));
+    } catch (error) {
+      toast.error(errorMessage(error, "Error al actualizar perfil"));
       setIsProfileCooldown(false);
     }
   };
@@ -226,8 +263,8 @@ export default function BusinessSettings() {
       toast.success("Contraseña actualizada exitosamente");
       passwordForm.reset();
       setTimeout(() => setIsPasswordCooldown(false), 3000);
-    } catch (error: unknown) {
-      toast.error(apiErrorMessage(error, "Error al actualizar contraseña"));
+    } catch (error) {
+      toast.error(errorMessage(error, "Error al actualizar contraseña"));
       setIsPasswordCooldown(false);
     }
   };
@@ -275,9 +312,9 @@ export default function BusinessSettings() {
       ? [
           {
             id: "business" as SettingsTab,
-            label: "Negocio",
+            label: "Tienda",
             icon: <Building2 className="w-4 h-4" />,
-            description: "Datos y redes sociales",
+            description: "Datos, entrega y pagos",
           },
         ]
       : []),
@@ -622,6 +659,67 @@ export default function BusinessSettings() {
                   onSubmit={businessForm.handleSubmit(onBusinessSubmit)}
                   className="space-y-4"
                 >
+                  {/* Publish state — first, because it is the highest-impact
+                      switch on this page: it decides whether buyers can see the
+                      catalog at all. */}
+                  <Card
+                    className={
+                      businessForm.watch("published")
+                        ? "border-emerald-500/30"
+                        : "border-amber-500/40"
+                    }
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`flex items-center justify-center w-10 h-10 rounded-full shrink-0 ${
+                              businessForm.watch("published")
+                                ? "bg-emerald-500/10 text-emerald-600"
+                                : "bg-amber-500/10 text-amber-600"
+                            }`}
+                          >
+                            {businessForm.watch("published") ? (
+                              <Globe className="w-5 h-5" />
+                            ) : (
+                              <EyeOff className="w-5 h-5" />
+                            )}
+                          </div>
+                          <div>
+                            <h2 className="font-semibold text-base">
+                              {businessForm.watch("published")
+                                ? "Tienda en vivo"
+                                : "Tienda fuera de línea"}
+                            </h2>
+                            <p className="text-xs text-muted-foreground max-w-md mt-0.5">
+                              {businessForm.watch("published")
+                                ? "Tus clientes pueden ver el catálogo y hacer pedidos."
+                                : "Los clientes ven un aviso de que estás preparando la tienda. Quien ya hizo un pedido sigue viendo el suyo y puede subir su comprobante."}
+                            </p>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 text-sm shrink-0">
+                          <input
+                            type="checkbox"
+                            className="size-4 rounded border-input"
+                            {...businessForm.register("published")}
+                          />
+                          Visible para clientes
+                        </label>
+                      </div>
+
+                      {!businessForm.watch("published") && (
+                        <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-500 mt-4">
+                          <AlertCircle className="w-4 h-4" />
+                          <AlertDescription className="text-xs">
+                            El cambio se aplica al guardar esta sección.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </CardContent>
+                  </Card>
+
                   {/* Logo Card */}
                   <Card className="border-border/60">
                     <CardContent className="p-6">
@@ -631,7 +729,7 @@ export default function BusinessSettings() {
                         </div>
                         <div>
                           <h2 className="font-semibold text-base">
-                            Identidad del Negocio
+                            Identidad de la Tienda
                           </h2>
                           <p className="text-xs text-muted-foreground">
                             Logo, nombre y eslogan
@@ -706,7 +804,7 @@ export default function BusinessSettings() {
                               Nombre del Negocio *
                             </Label>
                             <Input
-                              placeholder="MicroBiz"
+                              placeholder="Nombre de tu tienda"
                               className="h-9"
                               {...businessForm.register("name", {
                                 required: "El nombre es requerido",
@@ -886,6 +984,214 @@ export default function BusinessSettings() {
                               {businessForm.formState.errors.tiktok.message}
                             </p>
                           )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Store (delivery + payment) Card */}
+                  <Card className="border-border/60">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary shrink-0">
+                          <StoreIcon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h2 className="font-semibold text-base">
+                            Entrega y Pagos
+                          </h2>
+                          <p className="text-xs text-muted-foreground">
+                            Lo que verán tus clientes al finalizar el pedido
+                          </p>
+                        </div>
+                      </div>
+
+                      <Separator className="mb-6" />
+
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                            <MapPin className="w-3 h-3" /> Dirección del local
+                          </Label>
+                          <Input
+                            placeholder="Av. Amazonas N34-100, Quito"
+                            className="h-9"
+                            {...businessForm.register("address", {
+                              maxLength: {
+                                value: 200,
+                                message: "Máximo 200 caracteres",
+                              },
+                            })}
+                          />
+                          {businessForm.formState.errors.address && (
+                            <p className="text-xs text-destructive">
+                              {businessForm.formState.errors.address.message}
+                            </p>
+                          )}
+                          <p className="text-[11px] text-muted-foreground">
+                            Se muestra a quienes eligen retiro en local.
+                          </p>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                            <Navigation className="w-3 h-3" /> Ubicación en
+                            Google Maps
+                          </Label>
+                          <Input
+                            placeholder="https://maps.app.goo.gl/..."
+                            className="h-9"
+                            {...businessForm.register("maps_url", {
+                              maxLength: {
+                                value: 500,
+                                message: "Máximo 500 caracteres",
+                              },
+                              // Mirrors Business::MAPS_URL_FORMAT on the API so
+                              // the shop sees the problem before submitting.
+                              pattern: {
+                                value:
+                                  /^https:\/\/(maps\.app\.goo\.gl\/|goo\.gl\/maps\/|(www\.)?google\.[a-z]{2,3}(\.[a-z]{2})?\/maps|maps\.google\.[a-z]{2,3}(\.[a-z]{2})?\/)/i,
+                                message:
+                                  "Debe ser un enlace de Google Maps (ej. https://maps.app.goo.gl/...)",
+                              },
+                              setValueAs: (value: string) =>
+                                (value || "").trim(),
+                            })}
+                          />
+                          {businessForm.formState.errors.maps_url && (
+                            <p className="text-xs text-destructive">
+                              {businessForm.formState.errors.maps_url.message}
+                            </p>
+                          )}
+                          <p className="text-[11px] text-muted-foreground">
+                            Abre Google Maps, busca tu local, toca Compartir y
+                            pega aquí el enlace. Tus clientes verán un botón
+                            "Cómo llegar".
+                          </p>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                            <Truck className="w-3 h-3" /> Notas de entrega
+                          </Label>
+                          <Textarea
+                            rows={3}
+                            placeholder="Entregas en Quito de lunes a sábado. Costo de envío $3."
+                            {...businessForm.register("delivery_notes", {
+                              maxLength: {
+                                value: 1000,
+                                message: "Máximo 1000 caracteres",
+                              },
+                            })}
+                          />
+                          {businessForm.formState.errors.delivery_notes && (
+                            <p className="text-xs text-destructive">
+                              {
+                                businessForm.formState.errors.delivery_notes
+                                  .message
+                              }
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                            <Landmark className="w-3 h-3" /> Datos para
+                            transferencia
+                          </Label>
+                          <Textarea
+                            rows={3}
+                            placeholder="Banco Pichincha · Ahorros 2201234567 · Nombre del titular · Cédula 1712345678"
+                            {...businessForm.register("bank_instructions", {
+                              maxLength: {
+                                value: 1000,
+                                message: "Máximo 1000 caracteres",
+                              },
+                            })}
+                          />
+                          {businessForm.formState.errors.bank_instructions && (
+                            <p className="text-xs text-destructive">
+                              {
+                                businessForm.formState.errors.bank_instructions
+                                  .message
+                              }
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                            <Mail className="w-3 h-3" /> Correo para avisos
+                          </Label>
+                          <Input
+                            type="email"
+                            placeholder="tucorreo@gmail.com"
+                            {...businessForm.register("notification_email", {
+                              pattern: {
+                                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                                message: "Ingresa un correo válido",
+                              },
+                            })}
+                          />
+                          {businessForm.formState.errors.notification_email ? (
+                            <p className="text-xs text-destructive">
+                              {
+                                businessForm.formState.errors.notification_email
+                                  .message
+                              }
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Recibirás un aviso aquí cada vez que entre un
+                              pedido o un comprobante. Déjalo vacío para no
+                              recibir correos.
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                            <Palette className="w-3 h-3" /> Color principal
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="color"
+                              className="h-9 w-16 p-1"
+                              aria-label="Selector de color principal"
+                              value={
+                                businessForm.watch("primary_color") || "#E11D48"
+                              }
+                              onChange={(event) =>
+                                businessForm.setValue(
+                                  "primary_color",
+                                  event.target.value,
+                                  { shouldDirty: true },
+                                )
+                              }
+                            />
+                            <Input
+                              placeholder="#E11D48"
+                              className="h-9 max-w-40"
+                              {...businessForm.register("primary_color", {
+                                pattern: {
+                                  value: /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/,
+                                  message: "Usa un color hexadecimal (#E11D48)",
+                                },
+                              })}
+                            />
+                          </div>
+                          {businessForm.formState.errors.primary_color && (
+                            <p className="text-xs text-destructive">
+                              {
+                                businessForm.formState.errors.primary_color
+                                  .message
+                              }
+                            </p>
+                          )}
+                          <p className="text-[11px] text-muted-foreground">
+                            Se usa en los botones y detalles de tu tienda
+                            pública.
+                          </p>
                         </div>
                       </div>
                     </CardContent>

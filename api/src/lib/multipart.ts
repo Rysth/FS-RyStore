@@ -40,19 +40,62 @@ export async function readMultipart(request: FastifyRequest): Promise<MultipartP
       continue;
     }
 
-    // A repeated field (`images[]`) collapses into an array rather than the
-    // last value winning.
-    const existing = fields[part.fieldname];
-    if (existing === undefined) {
-      fields[part.fieldname] = part.value;
-    } else if (Array.isArray(existing)) {
-      existing.push(part.value);
-    } else {
-      fields[part.fieldname] = [existing, part.value];
-    }
+    assignField(fields, part.fieldname, part.value);
   }
 
   return { fields, files };
+}
+
+/**
+ * Expands Rails' bracket notation, which is what the admin's FormData sends:
+ * `category[name]` becomes `{ category: { name } }` and a repeated `images[]`
+ * becomes an array. Rack did this for free; here it has to be explicit, and
+ * without it `unwrap(fields, "category")` finds nothing and every multipart
+ * save fails with "El nombre es requerido".
+ */
+export function assignField(target: Record<string, unknown>, name: string, value: unknown): void {
+  const match = /^([^[\]]+)((?:\[[^[\]]*\])+)$/.exec(name);
+
+  if (!match) {
+    append(target, name, value);
+    return;
+  }
+
+  const [, root, rest] = match;
+  const keys = [...rest!.matchAll(/\[([^[\]]*)\]/g)].map((entry) => entry[1]!);
+
+  let container = target;
+  let key = root!;
+
+  for (const next of keys) {
+    // A trailing `[]` means "collect", so the current key holds an array.
+    if (next === "") {
+      append(container, key, value);
+      return;
+    }
+    const existing = container[key];
+    const nested =
+      existing && typeof existing === "object" && !Array.isArray(existing)
+        ? (existing as Record<string, unknown>)
+        : {};
+    container[key] = nested;
+    container = nested;
+    key = next;
+  }
+
+  append(container, key, value);
+}
+
+/** A repeated field collapses into an array rather than the last value winning. */
+function append(target: Record<string, unknown>, key: string, value: unknown): void {
+  const existing = target[key];
+  if (existing === undefined) {
+    target[key] = value;
+  } else if (Array.isArray(existing)) {
+    existing.push(value);
+  } else {
+    target[key] = [existing, value];
+  }
 }
 
 export function fileNamed(files: UploadedFile[], fieldname: string): UploadedFile | null {

@@ -7,7 +7,7 @@ interface WelcomeBannerProps {
 
 export function WelcomeBanner({ fullname }: WelcomeBannerProps) {
   return (
-    <Card className="overflow-hidden border-none bg-gradient-to-br from-blue-700 via-blue-600 to-sky-500 text-white shadow-md">
+    <Card className="overflow-hidden border-none bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 text-white shadow-md">
       <CardContent className="py-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-start gap-4">

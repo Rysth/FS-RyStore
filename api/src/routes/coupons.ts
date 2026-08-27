@@ -7,7 +7,7 @@ import type { Coupon } from "../db/schema.ts";
 import { PERMISSION_KEYS } from "../db/seed.ts";
 import { requirePermission } from "../middleware/authorize.ts";
 import { fail, ok } from "../lib/response.ts";
-import { paginationInput, parseOrFail } from "../lib/validation.ts";
+import { booleanInput, paginationInput, parseOrFail } from "../lib/validation.ts";
 import { unwrap } from "../lib/multipart.ts";
 import { toCents, ZERO } from "../lib/money.ts";
 
@@ -30,7 +30,7 @@ const couponSchema = z.object({
   code: z.string().optional(),
   discount_type: z.string().optional(),
   discount_value: z.union([z.string(), z.number()]).optional(),
-  active: z.boolean().optional(),
+  active: booleanInput.optional(),
   starts_at: dateInput.optional(),
   expires_at: dateInput.optional(),
   usage_limit: z.coerce.number().int().nullish(),
