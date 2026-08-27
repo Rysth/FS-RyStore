@@ -1,0 +1,14 @@
+{
+  "ignore": {
+    "rules": [
+      "knip/exports",
+      "react-perf/jsx-no-new-object-as-prop"
+    ],
+    "files": [
+      "src/components/ui/**",
+      "src/components/AreaChart.tsx",
+      "src/components/ComboChart.tsx",
+      "src/components/DonutChart.tsx"
+    ]
+  }
+}

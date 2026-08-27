@@ -1,0 +1,108 @@
+services:
+  admin:
+    build:
+      context: ./admin
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+    container_name: base-admin
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./admin:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_URL=${VITE_API_URL}
+      - ADMIN_SERVER_NAME=${ADMIN_SERVER_NAME:-admin.example.com}
+      - API_UPSTREAM_SCHEME=${API_UPSTREAM_SCHEME:-https}
+      - API_UPSTREAM_HOST=${API_UPSTREAM_HOST:-api.example.com}
+      - API_UPSTREAM_PORT=${API_UPSTREAM_PORT:-443}
+    depends_on:
+      - api
+    networks:
+      - base_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=Host(`admin.example.com`)"
+      - "traefik.http.routers.admin.tls=true"
+      - "traefik.http.routers.admin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.admin.loadbalancer.server.port=5173"
+
+  api:
+    build:
+      context: ./api
+      target: production
+    container_name: base-api
+    ports:
+      - "${PORT}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - ADMIN_FRONTEND_URL=${ADMIN_FRONTEND_URL:-https://admin.example.com}
+      - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-https://admin.example.com}
+      - "DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
+      - "APP_NAME=${APP_NAME:-R&R Template}"
+      - CLOUDFLARE_ENDPOINT=${CLOUDFLARE_ENDPOINT}
+      - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
+      - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
+      - CLOUDFLARE_BUCKET_NAME=${CLOUDFLARE_BUCKET_NAME}
+      - "SMTP_HOST=${SMTP_HOST}"
+      - "SMTP_PORT=${SMTP_PORT}"
+      - "SMTP_USER=${SMTP_USER}"
+      - "SMTP_PASSWORD=${SMTP_PASSWORD}"
+      - "SMTP_FROM=${SMTP_USER}"
+      - "SECRET_KEY_BASE=${SECRET_KEY_BASE}"
+    # Dependencies are baked into the image, so nothing is installed here. Only
+    # migrations and the idempotent RBAC seed run before the server starts.
+    command: sh -c "npm run db:deploy && npm run db:seed && exec node src/server.ts"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/up').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    # Postgres is provided externally in production; ensure DATABASE_URL points to it.
+    networks:
+      - base_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.example.com`)"
+      - "traefik.http.routers.api.tls=true"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.api.loadbalancer.server.port=3000"
+
+  worker:
+    build:
+      context: ./api
+      target: production
+    container_name: base-worker
+    command: ["node", "src/jobs/worker.ts"]
+    environment:
+      - NODE_ENV=production
+      - ADMIN_FRONTEND_URL=${ADMIN_FRONTEND_URL:-https://admin.example.com}
+      - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-https://admin.example.com}
+      - "DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
+      - "APP_NAME=${APP_NAME:-R&R Template}"
+      - CLOUDFLARE_ENDPOINT=${CLOUDFLARE_ENDPOINT}
+      - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
+      - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
+      - CLOUDFLARE_BUCKET_NAME=${CLOUDFLARE_BUCKET_NAME}
+      - "SMTP_HOST=${SMTP_HOST}"
+      - "SMTP_PORT=${SMTP_PORT}"
+      - "SMTP_USER=${SMTP_USER}"
+      - "SMTP_PASSWORD=${SMTP_PASSWORD}"
+      - "SMTP_FROM=${SMTP_USER}"
+      - "SECRET_KEY_BASE=${SECRET_KEY_BASE}"
+    # The api container owns migrations; the worker waits for it to finish.
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    # Postgres is external in production; ensure env vars point to that service.
+    networks:
+      - base_network
+
+networks:
+  base_network:
+    driver: bridge
