@@ -57,9 +57,18 @@ export function serializeUser(user: User, roles: string[]): SerializedUser {
  * through the API is needed.
  */
 export function logoUrl(logoKey: string | null): string {
-  if (!logoKey) return "";
+  return assetUrl(logoKey);
+}
+
+/**
+ * Public URL for any stored object. Returns "" rather than null so the
+ * frontends can drop it straight into a `src` without a guard, which is what
+ * the Rails serializers did.
+ */
+export function assetUrl(key: string | null | undefined): string {
+  if (!key) return "";
   const base = env.CLOUDFLARE_PUBLIC_URL?.replace(/\/$/, "");
-  return base ? `${base}/${logoKey}` : "";
+  return base ? `${base}/${key}` : "";
 }
 
 export function serializeBusiness(business: Business) {

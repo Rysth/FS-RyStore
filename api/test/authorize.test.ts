@@ -21,21 +21,36 @@ after(async () => {
 });
 
 describe("resolución de permisos", () => {
-  it("un admin obtiene las 9 claves de permiso", async () => {
+  it("un admin obtiene las 18 claves de permiso", async () => {
     const { roles, permissions } = await loadAuthorization(await userIdFor("admin@example.com"));
 
     assert.deepEqual(roles, ["admin"]);
-    assert.equal(permissions.length, 9);
+    assert.equal(permissions.length, 18);
     assert.deepEqual([...permissions].sort(), [...ROLE_DEFAULTS.admin!].sort());
   });
 
-  it("un operator solo obtiene dashboard y perfil", async () => {
+  it("un operator atiende pedidos y consulta catálogo, nada más", async () => {
     const { permissions } = await loadAuthorization(await userIdFor("operator@example.com"));
 
     assert.deepEqual(
       [...permissions].sort(),
-      [PERMISSION_KEYS.EDIT_PROFILE, PERMISSION_KEYS.VIEW_DASHBOARD].sort(),
+      [
+        PERMISSION_KEYS.EDIT_PROFILE,
+        PERMISSION_KEYS.VIEW_DASHBOARD,
+        PERMISSION_KEYS.VIEW_CATALOG,
+        PERMISSION_KEYS.VIEW_ORDERS,
+        PERMISSION_KEYS.MANAGE_ORDERS,
+      ].sort(),
     );
+  });
+
+  it("un operator no puede gestionar el catálogo ni ver reportes", async () => {
+    const { permissions } = await loadAuthorization(await userIdFor("operator@example.com"));
+
+    assert.ok(!permissions.includes(PERMISSION_KEYS.MANAGE_CATALOG));
+    assert.ok(!permissions.includes(PERMISSION_KEYS.VIEW_REPORTS));
+    assert.ok(!permissions.includes(PERMISSION_KEYS.VIEW_CONTACTS));
+    assert.ok(!permissions.includes(PERMISSION_KEYS.VIEW_USERS));
   });
 
   it("un usuario normal solo puede editar su perfil", async () => {

@@ -1,0 +1,25 @@
+---
+import StoreLayout from "../layouts/StoreLayout.astro";
+import CartPage from "../components/islands/CartPage";
+import { fetchSettings } from "../lib/api";
+
+// The cart itself lives in the browser, but its only exit is a checkout the API
+// has closed — so this page follows the store's state too.
+let published = true;
+try {
+  published = (await fetchSettings()).store.published;
+} catch {
+  // A settings hiccup should not hide a cart that is actually usable.
+}
+
+if (!published) {
+  return Astro.rewrite("/");
+}
+---
+
+<StoreLayout title="Tu carrito" noindex>
+  <div class="mx-auto w-full max-w-6xl px-4 py-6">
+    <h1 class="mb-5 text-2xl font-bold">Tu carrito</h1>
+    <CartPage client:load />
+  </div>
+</StoreLayout>

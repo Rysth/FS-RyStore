@@ -1,0 +1,142 @@
+---
+import { ClientRouter } from "astro:transitions";
+import { fetchCategories, fetchSettings } from "../lib/api";
+import type { StoreCategory, StoreSettings } from "../types/store";
+import Header from "../components/astro/Header.astro";
+import Footer from "../components/astro/Footer.astro";
+import SocialFloat from "../components/astro/SocialFloat.astro";
+import StoreClosed from "../components/astro/StoreClosed.astro";
+import FloatingCart from "../components/islands/FloatingCart";
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string | null;
+  storeSettings?: StoreSettings | null;
+  /** Pass the ones the page already fetched; omit and the layout fetches them. */
+  storeCategories?: StoreCategory[];
+  closed?: boolean;
+  /** Buyer-specific pages (order confirmation) must stay out of search results. */
+  noindex?: boolean;
+  /** Extra <head> markup, e.g. JSON-LD. */
+  ogType?: "website" | "product";
+  /** True only on the catalog, where the header's search filters a live grid. */
+  catalogHeader?: boolean;
+}
+
+const {
+  title,
+  description,
+  image,
+  storeSettings,
+  storeCategories,
+  closed,
+  noindex = false,
+  ogType = "website",
+  catalogHeader = false,
+} = Astro.props;
+
+let settings: StoreSettings | null = storeSettings ?? null;
+if (storeSettings === undefined) {
+  try {
+    settings = (await fetchSettings()).store;
+  } catch {
+    // The shell still renders if the API is briefly unreachable; pages handle
+    // their own data errors.
+  }
+}
+
+// The header's category drawer is on every page now, so every page needs the
+// list. The endpoint is cached ten minutes server-side, so this costs a cache
+// read on the pages that don't already have it.
+let categories: StoreCategory[] = storeCategories ?? [];
+if (storeCategories === undefined) {
+  try {
+    categories = (await fetchCategories()).categories;
+  } catch {
+    // A drawer with only "Todos" beats no page at all.
+  }
+}
+
+const shopName = settings?.name || "RyStore";
+const isClosed = closed ?? settings?.published === false;
+const pageTitle = isClosed
+  ? `Cerrado temporalmente | ${shopName}`
+  : title ? `${title} | ${shopName}` : shopName;
+const pageDescription =
+  isClosed
+    ? `${shopName} está actualizando su catálogo y volverá a abrir en breve.`
+    : description || settings?.slogan || "Catálogo online con pedidos por WhatsApp.";
+const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+const ogImage = image || settings?.logo_url || null;
+const favicon = settings?.logo_url || null;
+const primary = settings?.primary_color || "#E11D48";
+---
+
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {
+      favicon ? (
+        <link rel="icon" href={favicon} />
+      ) : (
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+      )
+    }
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageDescription} />
+    <link rel="canonical" href={canonical.href} />
+    {(noindex || isClosed) && <meta name="robots" content="noindex, nofollow" />}
+
+    {/* These are the whole point of server-rendering: WhatsApp, Facebook and
+        Google read them from the initial HTML, which a client-side SPA cannot
+        provide. */}
+    <meta property="og:site_name" content={shopName} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:url" content={canonical.href} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={pageDescription} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    <slot name="head" />
+    <ClientRouter />
+  </head>
+
+  <body>
+    <div
+      class="flex min-h-screen flex-col bg-background"
+      style={`--rystore-primary: ${primary}`}
+    >
+      {
+        isClosed ? (
+          <main class="flex min-h-screen items-center justify-center">
+            <StoreClosed settings={settings} />
+          </main>
+        ) : (
+          <>
+            <Header
+              settings={settings}
+              categories={categories}
+              catalogMode={catalogHeader}
+            />
+
+            <main class="flex-1">
+              <slot />
+            </main>
+
+            <Footer settings={settings} />
+
+            <SocialFloat settings={settings} />
+            <FloatingCart client:load transition:persist />
+          </>
+        )
+      }
+    </div>
+  </body>
+</html>

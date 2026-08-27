@@ -36,6 +36,16 @@ const schema = z.object({
   ADMIN_FRONTEND_URL: z.string().url().default("http://localhost:5173"),
   ADMIN_ALLOWED_ORIGINS: csv.default("http://localhost:5173"),
 
+  // Public origin of the Astro storefront. Used as the CORS origin for
+  // /api/v1/public/* and as the base for links inside order emails.
+  STOREFRONT_URL: z.string().url().default("http://localhost:4321"),
+  STOREFRONT_ALLOWED_ORIGINS: csv.optional(),
+
+  // Absolute public origin of this API. Asset URLs must be built against it:
+  // the storefront renders server-side inside Docker, and a relative or
+  // container-hostname URL is not resolvable from the buyer's browser.
+  PUBLIC_API_URL: z.string().url().optional(),
+
   SMTP_HOST: z.string().default("localhost"),
   SMTP_PORT: z.coerce.number().int().positive().default(1025),
   SMTP_USER: z.string().optional(),

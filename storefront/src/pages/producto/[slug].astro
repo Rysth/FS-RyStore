@@ -1,0 +1,195 @@
+---
+import StoreLayout from "../../layouts/StoreLayout.astro";
+import AddToCart from "../../components/islands/AddToCart";
+import ProductCard from "../../components/islands/ProductCard";
+import ProductGallery from "../../components/islands/ProductGallery";
+import { ApiError, fetchProduct, fetchSettings } from "../../lib/api";
+import { htmlToText } from "../../lib/html";
+import { bestTierPrice } from "../../lib/pricing";
+import type { StoreProduct, StoreSettings } from "../../types/store";
+
+const { slug } = Astro.params;
+
+let product: StoreProduct | null = null;
+let related: StoreProduct[] = [];
+let settings: StoreSettings | null = null;
+let loadError: string | null = null;
+
+// A shared product link is the most common way into this store, so a buyer who
+// opens one while the shop is closed gets the shop's own page rather than a 503.
+try {
+  settings = (await fetchSettings()).store;
+} catch {
+  // The gate below only closes on a definite answer; a settings hiccup should
+  // not hide a catalog that is actually open.
+}
+
+// Rewritten rather than given its own closed page: the whole store is shut, not
+// this product, and "/" already renders that state with noindex.
+if (settings != null && !settings.published) {
+  return Astro.rewrite("/");
+}
+
+try {
+  const data = await fetchProduct(slug!);
+  product = data.product;
+  related = data.related;
+} catch (error) {
+  if (error instanceof ApiError && error.status === 404) {
+    return Astro.rewrite("/404");
+  }
+  loadError =
+    error instanceof Error
+      ? error.message
+      : "No pudimos cargar este producto en este momento.";
+}
+
+const unavailableTitle = "Producto no disponible";
+const unavailableDescription =
+  loadError || "No pudimos cargar este producto en este momento.";
+
+const loadedProduct = product;
+
+// `description` is HTML from the admin's editor, so meta tags and JSON-LD take
+// the visible text — markup in an og:description shows up verbatim in the
+// WhatsApp preview card.
+const descriptionText = loadedProduct ? htmlToText(loadedProduct.description) : "";
+
+// `images` carries the gallery in order; image_url is its first element and the
+// fallback for a product that predates galleries.
+const galleryImages = (
+  loadedProduct?.images?.length ? loadedProduct.images : [loadedProduct?.image_url]
+).filter((image): image is string => !!image);
+
+// The cheapest reachable price is what makes the link worth sharing in a
+// wholesale catalog, so it goes in the meta description.
+const wholesale = loadedProduct ? bestTierPrice(loadedProduct) : null;
+const description = loadedProduct ? [
+  descriptionText.slice(0, 140),
+  wholesale != null
+    ? `Por mayor desde $${wholesale.toFixed(2)} c/u.`
+    : `$${Number(loadedProduct.price).toFixed(2)}.`,
+]
+  .filter(Boolean)
+  .join(" ") : unavailableDescription;
+
+const canonical = new URL(
+  loadedProduct ? `/producto/${loadedProduct.slug}` : Astro.url.pathname,
+  Astro.site ?? Astro.url.origin,
+).href;
+
+const jsonLd = loadedProduct ? {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: loadedProduct.name,
+  description: descriptionText || undefined,
+  image: loadedProduct.image_url || undefined,
+  category: loadedProduct.category_name || undefined,
+  offers: {
+    "@type": "Offer",
+    price: Number(loadedProduct.price).toFixed(2),
+    priceCurrency: "USD",
+    availability:
+      loadedProduct.stock != null && loadedProduct.stock <= 0
+        ? "https://schema.org/OutOfStock"
+        : "https://schema.org/InStock",
+    url: canonical,
+  },
+} : null;
+
+const pageTitle = loadedProduct?.name || unavailableTitle;
+const pageImage = loadedProduct?.image_url || undefined;
+---
+
+<StoreLayout
+  title={pageTitle}
+  description={description}
+  image={pageImage}
+  ogType={loadedProduct ? "product" : "website"}
+  noindex={loadedProduct == null}
+>
+  {jsonLd && (
+    <script
+      is:inline
+      slot="head"
+      type="application/ld+json"
+      set:html={JSON.stringify(jsonLd)}
+    />
+  )}
+
+  {loadedProduct == null ? (
+    <div class="mx-auto flex w-full max-w-md flex-col items-center gap-4 px-4 py-20 text-center">
+      <p class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        Producto
+      </p>
+      <h1 class="text-xl font-bold">No pudimos cargar este producto</h1>
+      <p class="text-sm text-muted-foreground">{unavailableDescription}</p>
+      <a
+        href="/"
+        class="rounded-full px-5 py-2.5 text-sm font-semibold text-white"
+        style="background-color: var(--rystore-primary)"
+      >
+        Volver al catálogo
+      </a>
+    </div>
+  ) : (
+    <div class="mx-auto w-full max-w-6xl px-4 py-5">
+    <nav class="mb-4 text-sm text-muted-foreground" aria-label="Migas de pan">
+      <a href="/" class="hover:text-foreground">Inicio</a>
+      {
+        loadedProduct.category_slug && (
+          <>
+            <span class="px-1.5">/</span>
+            <a href={`/?categoria=${loadedProduct.category_slug}`} class="hover:text-foreground">
+              {loadedProduct.category_name}
+            </a>
+          </>
+        )
+      }
+    </nav>
+
+    <div class="grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-10">
+      <div class="lg:sticky lg:top-24">
+        <ProductGallery
+          client:load
+          images={galleryImages}
+          video={loadedProduct.video_url}
+          name={loadedProduct.name}
+        />
+      </div>
+
+      <div class="space-y-5">
+        <h1 class="text-2xl font-bold sm:text-3xl">{loadedProduct.name}</h1>
+
+        <AddToCart client:load product={loadedProduct} />
+
+        {
+          loadedProduct.description && (
+            <div class="border-t border-border/60 pt-5">
+              <h2 class="mb-2 text-sm font-semibold">Descripción</h2>
+              {/* set:html does not escape. Safe because the API sanitizes
+                  `description` against an allowlist before storing it — see
+                  Product#sanitize_description. Never point this at a field the
+                  server has not sanitized. */}
+              <div class="rystore-prose text-sm leading-relaxed text-muted-foreground" set:html={loadedProduct.description} />
+            </div>
+          )
+        }
+      </div>
+    </div>
+
+    {
+      related.length > 0 && (
+        <section class="mt-12">
+          <h2 class="mb-4 text-lg font-semibold">También te puede gustar</h2>
+          <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            {related.map((item) => (
+              <ProductCard product={item} />
+            ))}
+          </div>
+        </section>
+      )
+    }
+    </div>
+  )}
+</StoreLayout>

@@ -1,0 +1,58 @@
+---
+import type { StoreSettings } from "../../types/store";
+
+interface Props {
+  settings: StoreSettings | null;
+}
+
+const { settings } = Astro.props;
+
+const shopName = settings?.name || "La tienda";
+const whatsappNumber = (settings?.whatsapp || "").replace(/\D/g, "");
+---
+
+{/* Shown when the shop has unpublished the store. Deliberately still the shop's
+    own page — name, colour, a way to reach them — rather than an error: a buyer
+    who followed a shared WhatsApp link should understand they came to the right
+    place at the wrong time. Pages that render this pass noindex, so Google does
+    not cache "closed" as the catalog. */}
+<div class="mx-auto flex w-full max-w-md flex-col items-center px-4 py-16 text-center">
+  <div
+    class="mb-5 flex size-14 items-center justify-center rounded-full"
+    style="background-color: color-mix(in srgb, var(--rystore-primary) 12%, transparent)"
+  >
+    <svg
+      class="size-7"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--rystore-primary)"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 9h18M5 9V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9" />
+      <path d="M9 14h6" />
+    </svg>
+  </div>
+
+  <h1 class="text-2xl font-bold">Estamos preparando la tienda</h1>
+  <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
+    {shopName} está actualizando su catálogo y volverá a abrir en breve. Gracias
+    por tu paciencia.
+  </p>
+
+  {
+    whatsappNumber && (
+      <a
+        href={`https://wa.me/${whatsappNumber}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="mt-6 inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-white"
+        style="background-color: var(--rystore-primary)"
+      >
+        Escríbenos por WhatsApp
+      </a>
+    )
+  }
+</div>

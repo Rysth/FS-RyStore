@@ -31,7 +31,10 @@ export async function buildServer() {
     // Traefik terminates TLS in front of this service (see docker-compose.yml
     // labels), so client IPs used for rate limiting arrive via X-Forwarded-For.
     trustProxy: true,
-    bodyLimit: 5 * 1024 * 1024,
+    // Headroom for the largest upload the API accepts (a 20MB product video).
+    // Per-endpoint ceilings are enforced in the handlers so each one can answer
+    // with its own Spanish message instead of a generic 413.
+    bodyLimit: 21 * 1024 * 1024,
   });
 
   await app.register(cors, {
@@ -42,7 +45,9 @@ export async function buildServer() {
   });
 
   await app.register(cookie);
-  await app.register(multipart, { limits: { fileSize: 2 * 1024 * 1024, files: 1 } });
+  // `files: 3` is the product gallery batch; `fileSize` is the video ceiling.
+  // Images (2MB) and payment proofs (5MB) are checked per endpoint.
+  await app.register(multipart, { limits: { fileSize: 20 * 1024 * 1024, files: 3 } });
 
   // Global fallback limit. Tighter per-route limits (auth endpoints, writes to
   // /users) are declared on the routes themselves — see middleware/rate-limit.ts.

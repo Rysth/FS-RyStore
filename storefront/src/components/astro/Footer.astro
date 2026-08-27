@@ -1,0 +1,101 @@
+---
+import type { StoreSettings } from "../../types/store";
+
+interface Props {
+  settings: StoreSettings | null;
+}
+
+const { settings } = Astro.props;
+const shopName = settings?.name || "RyStore";
+const whatsappNumber = (settings?.whatsapp || "").replace(/\D/g, "");
+---
+
+<footer class="mt-12 border-t border-border/60 bg-muted/30 pb-24 sm:pb-8">
+  <div class="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 sm:grid-cols-2">
+    <div class="space-y-2">
+      <h2 class="text-base font-semibold">{shopName}</h2>
+      {settings?.slogan && <p class="text-sm text-muted-foreground">{settings.slogan}</p>}
+      {
+        /* The address becomes the link when there is a maps URL; with only a
+           maps URL the button still stands on its own. */
+        settings?.maps_url ? (
+          <a
+            href={settings.maps_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground hover:text-foreground hover:underline"
+          >
+            {settings.address && <span>{settings.address} ·</span>}
+            <span class="whitespace-nowrap font-medium">Cómo llegar →</span>
+          </a>
+        ) : (
+          settings?.address && <p class="text-sm text-muted-foreground">{settings.address}</p>
+        )
+      }
+    </div>
+
+    <div class="space-y-3 sm:text-right">
+      {
+        whatsappNumber && (
+          <a
+            href={`https://wa.me/${whatsappNumber}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 text-sm font-medium hover:underline"
+          >
+            Escríbenos por WhatsApp
+          </a>
+        )
+      }
+
+      <div class="flex gap-4 text-sm text-muted-foreground sm:justify-end">
+        {
+          settings?.instagram && (
+            <a
+              href={`https://instagram.com/${settings.instagram}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="hover:text-foreground"
+            >
+              Instagram
+            </a>
+          )
+        }
+        {
+          settings?.facebook && (
+            <a
+              href={`https://facebook.com/${settings.facebook}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="hover:text-foreground"
+            >
+              Facebook
+            </a>
+          )
+        }
+        {
+          settings?.tiktok && (
+            <a
+              href={`https://tiktok.com/@${settings.tiktok}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="hover:text-foreground"
+            >
+              TikTok
+            </a>
+          )
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="border-t border-border/60 py-4 text-center text-xs text-muted-foreground">
+    Tienda creada con{" "}
+    <a
+      href="https://rysthdesign.com/"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="font-medium hover:text-foreground">RyStore</a
+    >{" "}by RysthDesign
+  </div>
+</footer>

@@ -1,0 +1,27 @@
+---
+import StoreLayout from "../layouts/StoreLayout.astro";
+import CheckoutForm from "../components/islands/CheckoutForm";
+import { fetchSettings } from "../lib/api";
+
+let published = true;
+
+try {
+  published = (await fetchSettings()).store.published;
+} catch {
+  // A settings hiccup should not block a checkout that would otherwise work.
+}
+
+// The API refuses to create orders while the store is unpublished, so sending a
+// buyer through the form only to fail at the last step would be the worst
+// version of this. "/" explains the situation instead.
+if (!published) {
+  return Astro.rewrite("/");
+}
+---
+
+<StoreLayout title="Finalizar pedido" noindex>
+  <div class="mx-auto w-full max-w-6xl px-4 py-6">
+    <h1 class="mb-5 text-2xl font-bold">Finalizar pedido</h1>
+    <CheckoutForm client:load />
+  </div>
+</StoreLayout>

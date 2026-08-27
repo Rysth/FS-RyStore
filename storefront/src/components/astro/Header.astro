@@ -1,0 +1,264 @@
+---
+import type { StoreCategory, StoreSettings } from "../../types/store";
+import CartBadge from "../islands/CartBadge";
+import HeaderSearch from "../islands/HeaderSearch";
+
+interface Props {
+    settings: StoreSettings | null;
+    /** Drives the mobile category drawer. Empty just hides the category links. */
+    categories?: StoreCategory[];
+    class?: string;
+    /**
+     * Only the catalog page has a grid for the search box to filter, so only
+     * there does the search write to the shared store (and the Filtros toggle
+     * appear). Everywhere else the box is a plain form that navigates to the
+     * catalog with ?buscar= — a box wired to a grid that is not on the page
+     * would look identical and do nothing.
+     */
+    catalogMode?: boolean;
+}
+
+const {
+    settings,
+    categories = [],
+    class: className = "",
+    catalogMode = false,
+} = Astro.props;
+const shopName = settings?.name || "RyStore";
+---
+
+{/*
+  One header for every page. The catalog used to override the layout's header
+  slot with its own mobile markup, so a buyer who tapped a product landed on a
+  page with a different navbar: no menu button, no search, a cart icon that had
+  moved. Everything below is shared now, and `catalogMode` is the only thing
+  that varies.
+*/}
+
+<header
+    class:list={[
+        "sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur",
+        className,
+    ]}
+>
+    {/* Mobile */}
+    <div class="sm:hidden">
+        <div
+            class="relative mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4"
+        >
+            <button
+                type="button"
+                data-menu-open
+                class="flex size-10 items-center justify-center rounded-full transition-colors hover:bg-muted"
+                aria-label="Menú"
+            >
+                <svg
+                    class="size-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+
+            <a
+                href="/"
+                class="absolute left-1/2 -translate-x-1/2 truncate text-base font-bold"
+                >{shopName}</a
+            >
+
+            <CartBadge client:load />
+        </div>
+
+        <div class="mx-auto w-full max-w-6xl px-4 pb-3">
+            {
+                catalogMode ? (
+                    <HeaderSearch client:load showFilters />
+                ) : (
+                    <form action="/" method="get" class="flex min-w-0 items-center gap-2">
+                        <div class="relative min-w-0 flex-1">
+                            <svg
+                                class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                aria-hidden="true"
+                            >
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="m21 21-4.3-4.3" />
+                            </svg>
+                            <input
+                                type="search"
+                                name="buscar"
+                                placeholder="Buscar productos..."
+                                aria-label="Buscar productos"
+                                class="w-full rounded-full border border-border bg-muted/50 py-2 pl-9 pr-4 text-sm outline-none focus:border-transparent focus:ring-2"
+                                style="--tw-ring-color: var(--rystore-primary)"
+                            />
+                        </div>
+                    </form>
+                )
+            }
+        </div>
+    </div>
+
+    {/* Desktop */}
+    <div
+        class="mx-auto hidden h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:flex"
+    >
+        <a href="/" class="flex min-w-0 items-center gap-2.5">
+            {
+                settings?.logo_url ? (
+                    <img
+                        src={settings.logo_url}
+                        alt={shopName}
+                        width="36"
+                        height="36"
+                        class="size-9 shrink-0 rounded-lg object-contain"
+                    />
+                ) : (
+                    <span
+                        class="flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+                        style="background-color: var(--rystore-primary)"
+                    >
+                        {shopName.charAt(0).toUpperCase()}
+                    </span>
+                )
+            }
+            <span class="truncate text-base font-bold sm:text-lg">{shopName}</span>
+        </a>
+
+        {
+            catalogMode ? (
+                <HeaderSearch client:load className="mx-4 max-w-md flex-1" />
+            ) : (
+                <form action="/" method="get" class="mx-4 min-w-0 max-w-md flex-1">
+                    <div class="relative min-w-0 flex-1">
+                        <svg
+                            class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.3-4.3" />
+                        </svg>
+                        <input
+                            type="search"
+                            name="buscar"
+                            placeholder="Buscar productos..."
+                            aria-label="Buscar productos"
+                            class="w-full rounded-full border border-border bg-muted/50 py-2 pl-9 pr-4 text-sm outline-none focus:border-transparent focus:ring-2"
+                            style="--tw-ring-color: var(--rystore-primary)"
+                        />
+                    </div>
+                </form>
+            )
+        }
+
+        <nav class="flex items-center gap-1">
+            <a
+                href="/"
+                class="rounded-full px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+                Productos
+            </a>
+            <CartBadge client:load />
+        </nav>
+    </div>
+</header>
+
+{/* Mobile category drawer */}
+<div id="mobile-menu" class="fixed inset-0 z-50 hidden sm:hidden">
+    <div class="absolute inset-0 bg-black/60" data-menu-close></div>
+    <div
+        class="absolute inset-x-4 top-4 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg bg-background shadow-2xl"
+    >
+        <div
+            class="sticky top-0 z-10 flex items-center justify-center border-b border-border/60 bg-background px-12 py-4"
+        >
+            <span class="text-2xl font-bold">{shopName}</span>
+            <button
+                type="button"
+                data-menu-close
+                class="absolute right-3 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full transition-colors hover:bg-muted"
+                aria-label="Cerrar menú"
+            >
+                <svg
+                    class="size-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M18 6 6 18M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <nav class="space-y-1 px-5 py-6 text-center">
+            <a
+                href="/"
+                class="block rounded-xl px-4 py-4 text-lg font-bold uppercase tracking-wide transition-colors hover:bg-muted"
+            >
+                Todos
+            </a>
+            {
+                categories.map((category) => (
+                    <a
+                        href={`/?categoria=${category.slug}`}
+                        class="block rounded-xl px-4 py-4 text-lg font-bold uppercase tracking-wide transition-colors hover:bg-muted"
+                    >
+                        {category.name}
+                    </a>
+                ))
+            }
+        </nav>
+    </div>
+</div>
+
+<script is:inline>
+    (function () {
+        if (window.__rystoreMobileHeaderBound) return;
+        window.__rystoreMobileHeaderBound = true;
+
+        var open = function () {
+            var menu = document.getElementById("mobile-menu");
+            if (menu) menu.classList.remove("hidden");
+        };
+        var close = function () {
+            var menu = document.getElementById("mobile-menu");
+            if (menu) menu.classList.add("hidden");
+        };
+
+        document.addEventListener("click", function (event) {
+            var target = event.target;
+            if (!(target instanceof Element)) return;
+
+            if (target.closest("[data-menu-open]")) {
+                open();
+                return;
+            }
+
+            if (target.closest("[data-menu-close]")) {
+                close();
+            }
+        });
+
+        // ClientRouter swaps the DOM without reloading, so a drawer left open
+        // would survive into the next page with no way to notice it.
+        document.addEventListener("astro:before-swap", close);
+    })();
+</script>

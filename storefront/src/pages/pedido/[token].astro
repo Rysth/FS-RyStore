@@ -1,0 +1,223 @@
+---
+import StoreLayout from "../../layouts/StoreLayout.astro";
+import PaymentProofUpload from "../../components/islands/PaymentProofUpload";
+import PendingTransferGuard from "../../components/islands/PendingTransferGuard";
+import { ApiError, fetchOrder, fetchSettings } from "../../lib/api";
+import { formatPrice } from "../../lib/format";
+import type { ConfirmedOrder } from "../../types/store";
+
+const { token } = Astro.params;
+
+let order: ConfirmedOrder;
+let whatsappUrl: string | null = null;
+
+try {
+  const data = await fetchOrder(token!);
+  order = data.order;
+  whatsappUrl = data.whatsapp_url;
+} catch (error) {
+  if (error instanceof ApiError && error.status === 404) {
+    return Astro.rewrite("/404");
+  }
+  throw error;
+}
+
+let bankInstructions: string | null = null;
+let storeMapsUrl: string | null = null;
+let storeAddress: string | null = null;
+try {
+  const store = (await fetchSettings()).store;
+  bankInstructions = store.bank_instructions;
+  storeMapsUrl = store.maps_url;
+  storeAddress = store.address;
+} catch {
+  // Non-fatal: the upload box still works without the bank details, and the
+  // pickup block below simply doesn't render.
+}
+---
+
+<StoreLayout title={`Pedido ${order.number}`} noindex>
+  <div class="mx-auto w-full max-w-2xl space-y-5 px-4 py-8">
+    <div class="rounded-2xl border border-border/60 bg-card p-5 text-center">
+      <p class="text-sm text-muted-foreground">
+        {order.status === "cancelado" ? "Pedido cancelado" : "¡Gracias por tu pedido!"}
+      </p>
+      <h1 class="mt-1 text-2xl font-bold">{order.number}</h1>
+      <p class="mt-2 text-3xl font-bold" style="color: var(--rystore-primary)">
+        {formatPrice(order.total)}
+      </p>
+      <p class="mt-3 text-sm text-muted-foreground">
+        {
+          order.status === "cancelado"
+            ? "Este pedido fue cancelado. Si todavía quieres comprar, vuelve al catálogo y crea un pedido nuevo."
+            : order.payment_proof_required
+            ? "Ya registramos tu pedido. Abajo están los datos para transferir y subir tu comprobante."
+            : "Ya registramos tu pedido. Estamos abriendo WhatsApp para que lo confirmes con la tienda."
+        }
+      </p>
+
+      {/* A transfer order sends its message from the upload box below, once
+          there is a receipt to talk about. */}
+      {
+        whatsappUrl && !order.payment_proof_required && (
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            id="whatsapp-link"
+            class="mt-4 inline-flex w-full items-center justify-center rounded-full py-3 text-sm font-semibold text-white"
+            style="background-color: var(--rystore-primary)"
+          >
+            Enviar pedido por WhatsApp
+          </a>
+        )
+      }
+    </div>
+
+    {
+      order.status === "cancelado" ? (
+        <p class="rounded-2xl border border-border/60 bg-card p-4 text-sm text-muted-foreground">
+          Este pedido fue cancelado. Si todavía quieres comprar, vuelve al catálogo y crea un pedido nuevo.
+        </p>
+      ) : order.payment_proof_required && (
+        <PaymentProofUpload
+          client:load
+          token={token!}
+          bankInstructions={bankInstructions}
+          existingProofUrl={order.payment_proof_url}
+          createdAt={order.created_at}
+          whatsappUrl={whatsappUrl}
+        />
+      )
+    }
+
+    {
+      order.payment_method === "transferencia" &&
+        order.status === "pendiente" &&
+        !order.payment_proof_url && (
+          <PendingTransferGuard client:load token={token!} />
+        )
+    }
+
+    <section class="space-y-3 rounded-2xl border border-border/60 bg-card p-4">
+      <h2 class="text-base font-semibold">Detalle</h2>
+
+      <ul class="space-y-2 text-sm">
+        {
+          order.items.map((item) => (
+            <li class="flex justify-between gap-3">
+              <span class="min-w-0">
+                <span class="font-medium">{item.quantity} x</span> {item.product_name}
+                {item.details && (
+                  <span class="block text-xs text-muted-foreground">
+                    {item.details}
+                  </span>
+                )}
+                <span class="block text-xs text-muted-foreground">
+                  {formatPrice(item.unit_price)} c/u
+                </span>
+              </span>
+              <span class="shrink-0 font-medium">{formatPrice(item.subtotal)}</span>
+            </li>
+          ))
+        }
+      </ul>
+
+      {
+        Number(order.discount_amount) > 0 && (
+          <div class="space-y-1 border-t border-border/60 pt-3 text-sm">
+            <div class="flex justify-between text-muted-foreground">
+              <span>Subtotal</span>
+              <span>{formatPrice(order.subtotal)}</span>
+            </div>
+            <div class="flex justify-between" style="color: #059669">
+              <span>Cupón {order.coupon_code}</span>
+              <span>-{formatPrice(order.discount_amount)}</span>
+            </div>
+          </div>
+        )
+      }
+
+      <div class={`flex justify-between pt-3 font-bold ${Number(order.discount_amount) > 0 ? "" : "border-t border-border/60"}`}>
+        <span>Total</span>
+        <span>{formatPrice(order.total)}</span>
+      </div>
+
+      <dl class="grid gap-2 border-t border-border/60 pt-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt class="text-xs text-muted-foreground">Cliente</dt>
+          <dd>{order.customer_name}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground">Teléfono</dt>
+          <dd>{order.phone}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground">Entrega</dt>
+          <dd>{order.delivery_method_label}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground">Pago</dt>
+          <dd>{order.payment_method_label}</dd>
+        </div>
+        {
+          order.address && (
+            <div class="sm:col-span-2">
+              <dt class="text-xs text-muted-foreground">Dirección</dt>
+              <dd>
+                {order.address}
+                {order.city && `, ${order.city}`}
+              </dd>
+            </div>
+          )
+        }
+        {/* Only for pickup: this buyer has to physically reach the shop. */}
+        {
+          order.delivery_method === "retiro" && storeMapsUrl && (
+            <div class="sm:col-span-2">
+              <dt class="text-xs text-muted-foreground">Retira en</dt>
+              <dd>
+                {storeAddress && <span>{storeAddress} </span>}
+                <a
+                  href={storeMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="whitespace-nowrap font-medium hover:underline"
+                  style="color: var(--rystore-primary)"
+                >
+                  Cómo llegar →
+                </a>
+              </dd>
+            </div>
+          )
+        }
+      </dl>
+    </section>
+
+    <a
+      href="/"
+      class="block py-2 text-center text-sm text-muted-foreground hover:text-foreground"
+    >
+      Seguir comprando
+    </a>
+  </div>
+</StoreLayout>
+
+{/* Opening WhatsApp is a convenience, not the record: the order is already
+    saved. If the popup is blocked the button above still works.
+    Transfer orders are excluded — their message waits for the receipt. */}
+<script
+  is:inline
+  define:vars={{
+    whatsappUrl: order.payment_proof_required ? null : whatsappUrl,
+    orderNumber: order.number,
+  }}
+>
+  if (whatsappUrl) {
+    const key = `rystore-wa-${orderNumber}`;
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, "1");
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    }
+  }
+</script>

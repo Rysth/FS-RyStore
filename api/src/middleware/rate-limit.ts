@@ -53,9 +53,41 @@ const builder = (max: number, timeWindow: string, keyGenerator?: (request: Fasti
     rateLimitError(Math.ceil(context.ttl / 1000)),
 });
 
+/**
+ * The storefront renders server-side, so every catalog read for every visitor
+ * arrives from one address — the SSR container's. Without this exemption the
+ * entire shop shares a single 300-request bucket and goes down at peak.
+ *
+ * rack_attack called this safelist "storefront/internal_reads". It covers GETs
+ * only: the checkout POST and the browser-side filtering arrive through the
+ * proxy carrying the buyer's own IP and stay rate limited.
+ */
+const PRIVATE_IPV4 = [
+  /^127\./,
+  /^10\./,
+  /^192\.168\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+];
+
+function isPrivateAddress(ip: string): boolean {
+  const address = ip.startsWith("::ffff:") ? ip.slice(7) : ip;
+  if (address === "::1" || address === "localhost") return true;
+  // fc00::/7 — unique local addresses.
+  if (/^f[cd][0-9a-f]{2}:/i.test(address)) return true;
+  return PRIVATE_IPV4.some((pattern) => pattern.test(address));
+}
+
+export function isInternalStorefrontRead(request: FastifyRequest): boolean {
+  return (
+    request.method === "GET" &&
+    request.url.startsWith("/api/v1/public/") &&
+    isPrivateAddress(request.ip)
+  );
+}
+
 export const RATE_LIMITS = {
   /** rack_attack: api/requests/ip — 300 per 5 minutes across the whole API. */
-  global: builder(300, "5 minutes"),
+  global: { ...builder(300, "5 minutes"), allowList: isInternalStorefrontRead },
 
   /** rack_attack: api/auth/email — 5 per 20 seconds, keyed by email. */
   login: builder(5, "20 seconds", emailKey),
@@ -68,4 +100,7 @@ export const RATE_LIMITS = {
 
   /** rack_attack: api/sensitive/ip — 60 per 5 minutes on writes to /users. */
   sensitiveWrite: builder(60, "5 minutes"),
+
+  /** rack_attack: api/public_orders/ip — 20 checkouts per hour per buyer IP. */
+  publicOrders: builder(20, "1 hour"),
 } as const;

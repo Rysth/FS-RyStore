@@ -1,5 +1,8 @@
+import { randomBytes } from "node:crypto";
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { env } from "../config/env.ts";
+import { IMAGE_CONTENT_TYPES, isOptimizable, optimizeImage } from "./images.ts";
+import type { ImagePurpose } from "./images.ts";
 
 /**
  * Cloudflare R2 storage, replacing Active Storage plus aws-sdk-s3.
@@ -14,7 +17,7 @@ import { env } from "../config/env.ts";
  * now lives on the row that owns it, which removes two tables and a join.
  */
 
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const ALLOWED_IMAGE_TYPES = IMAGE_CONTENT_TYPES;
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
 export const STORAGE_ERRORS = {
@@ -85,4 +88,86 @@ export async function deleteObject(key: string): Promise<void> {
   await getClient().send(
     new DeleteObjectCommand({ Bucket: env.CLOUDFLARE_BUCKET_NAME!, Key: key }),
   );
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Generic assets (catalog images, product video, payment proof)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export type AssetUpload = {
+  buffer: Buffer;
+  filename: string;
+  contentType: string;
+};
+
+export type AssetTarget = {
+  /** Key prefix directory, e.g. "products/12" or "orders/340". */
+  folder: string;
+  /** Filename prefix, e.g. "image", "video", "comprobante". */
+  prefix: string;
+  /**
+   * When set, the file is re-encoded to WebP before upload (see lib/images.ts).
+   * Leave it out for videos and payment proofs, which are stored as sent.
+   */
+  optimizeAs?: ImagePurpose;
+};
+
+/**
+ * Rails' naming, kept verbatim: `<folder>/<prefix>_<epoch>_<hex4><ext>`.
+ * The random suffix is not decoration — a gallery batch uploads several files
+ * inside the same second, and without it they collide on the key.
+ */
+export function buildAssetKey(folder: string, prefix: string, extension: string): string {
+  const stamp = Math.floor(Date.now() / 1000);
+  return `${folder}/${prefix}_${stamp}_${randomBytes(4).toString("hex")}${extension}`;
+}
+
+function extensionOf(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  return dot === -1 ? "" : filename.slice(dot).toLowerCase();
+}
+
+/**
+ * Uploads one file and returns its object key. Images declared with
+ * `optimizeAs` are converted to WebP first, so the stored key ends in .webp
+ * regardless of what was uploaded.
+ */
+export async function uploadAsset(upload: AssetUpload, target: AssetTarget): Promise<string> {
+  let body = upload.buffer;
+  let contentType = upload.contentType;
+  let extension = extensionOf(upload.filename);
+
+  if (target.optimizeAs && isOptimizable(upload.contentType)) {
+    const optimized = await optimizeImage(upload.buffer, target.optimizeAs);
+    body = optimized.buffer;
+    contentType = optimized.contentType;
+    extension = optimized.extension;
+  }
+
+  const key = buildAssetKey(target.folder, target.prefix, extension);
+
+  await getClient().send(
+    new PutObjectCommand({
+      Bucket: env.CLOUDFLARE_BUCKET_NAME!,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
+
+  return key;
+}
+
+/**
+ * Best-effort delete for cleanup paths (replacing a photo, purging a rejected
+ * upload). The row is already gone or about to be; a failure to remove the
+ * object must not turn into a 500 for the shop owner.
+ */
+export async function deleteObjectQuietly(key: string | null | undefined): Promise<void> {
+  if (!key) return;
+  try {
+    await deleteObject(key);
+  } catch {
+    // Orphaned object in the bucket; not worth failing the request over.
+  }
 }

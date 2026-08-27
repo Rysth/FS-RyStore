@@ -54,7 +54,7 @@ describe("GET /api/v1/me", () => {
     const { user } = response.json();
     assert.equal(user.email, "manager@example.com");
     assert.deepEqual(user.roles, ["manager"]);
-    assert.equal(user.permissions.length, 9);
+    assert.equal(user.permissions.length, 18);
     assert.equal(typeof user.id, "string", "los ids son texto tras la migración");
   });
 
@@ -148,13 +148,13 @@ describe("GET /api/v1/dashboard/stats", () => {
 });
 
 describe("GET /api/v1/permissions", () => {
-  it("devuelve las 9 claves y el mapeo por rol", async () => {
+  it("devuelve las 18 claves y el mapeo por rol", async () => {
     const response = await asManager("/api/v1/permissions");
     const body = response.json();
 
-    assert.equal(body.permissions.length, 9);
+    assert.equal(body.permissions.length, 18);
     const admin = body.roles.find((role: { name: string }) => role.name === "admin");
-    assert.equal(admin.permissions.length, 9);
+    assert.equal(admin.permissions.length, 18);
   });
 });
 

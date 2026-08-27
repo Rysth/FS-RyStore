@@ -6,7 +6,7 @@ import { permissions, rolePermissions, roles } from "./schema.ts";
  * RBAC seed data, carried over verbatim from
  * backend/app/models/permission.rb (ALL_KEYS, ROLE_DEFAULTS, seed!).
  *
- * The 9 permission keys must stay in sync with the `Permissions` const in
+ * The 18 permission keys must stay in sync with the `Permissions` const in
  * admin/src/types/auth.ts (AGENTS.md §6).
  *
  * Idempotent: safe to run on every boot and on every deploy.
@@ -22,6 +22,15 @@ export const PERMISSION_KEYS = {
   VIEW_BUSINESS: "view_business",
   EDIT_BUSINESS: "edit_business",
   EDIT_PROFILE: "edit_profile",
+  VIEW_CATALOG: "view_catalog",
+  MANAGE_CATALOG: "manage_catalog",
+  VIEW_ORDERS: "view_orders",
+  MANAGE_ORDERS: "manage_orders",
+  VIEW_COUPONS: "view_coupons",
+  MANAGE_COUPONS: "manage_coupons",
+  VIEW_CONTACTS: "view_contacts",
+  MANAGE_CONTACTS: "manage_contacts",
+  VIEW_REPORTS: "view_reports",
 } as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[keyof typeof PERMISSION_KEYS];
@@ -41,6 +50,15 @@ const PERMISSION_DEFINITIONS: Array<{
   { key: PERMISSION_KEYS.VIEW_BUSINESS, name: "Ver Negocio", group: "business", description: "Ver configuración del negocio" },
   { key: PERMISSION_KEYS.EDIT_BUSINESS, name: "Editar Negocio", group: "business", description: "Editar configuración del negocio" },
   { key: PERMISSION_KEYS.EDIT_PROFILE, name: "Editar Perfil", group: "profile", description: "Editar perfil propio" },
+  { key: PERMISSION_KEYS.VIEW_CATALOG, name: "Ver Catálogo", group: "catalog", description: "Ver productos, categorías y combos" },
+  { key: PERMISSION_KEYS.MANAGE_CATALOG, name: "Gestionar Catálogo", group: "catalog", description: "Crear, editar y eliminar productos, categorías y combos" },
+  { key: PERMISSION_KEYS.VIEW_ORDERS, name: "Ver Pedidos", group: "orders", description: "Ver la lista y el detalle de pedidos" },
+  { key: PERMISSION_KEYS.MANAGE_ORDERS, name: "Gestionar Pedidos", group: "orders", description: "Registrar pedidos y cambiar su estado" },
+  { key: PERMISSION_KEYS.VIEW_COUPONS, name: "Ver Cupones", group: "coupons", description: "Ver la lista de cupones" },
+  { key: PERMISSION_KEYS.MANAGE_COUPONS, name: "Gestionar Cupones", group: "coupons", description: "Crear, editar y eliminar cupones" },
+  { key: PERMISSION_KEYS.VIEW_CONTACTS, name: "Ver Contactos", group: "contacts", description: "Ver la lista de clientes" },
+  { key: PERMISSION_KEYS.MANAGE_CONTACTS, name: "Gestionar Contactos", group: "contacts", description: "Crear y editar clientes" },
+  { key: PERMISSION_KEYS.VIEW_REPORTS, name: "Ver Reportes", group: "reports", description: "Ver y exportar reportes de ventas" },
 ];
 
 const ALL_KEYS = PERMISSION_DEFINITIONS.map((definition) => definition.key);
@@ -50,7 +68,15 @@ export const ROLE_DEFAULTS: Record<string, PermissionKey[]> = {
   // Identical to admin: same permission set, and login is a single step for
   // both since the admin OTP gate was removed (AGENTS.md §4, §6).
   manager: ALL_KEYS,
-  operator: [PERMISSION_KEYS.VIEW_DASHBOARD, PERMISSION_KEYS.EDIT_PROFILE],
+  // The shop clerk: takes orders and looks things up, but does not touch the
+  // catalog, users, coupons, contacts or reports.
+  operator: [
+    PERMISSION_KEYS.VIEW_DASHBOARD,
+    PERMISSION_KEYS.EDIT_PROFILE,
+    PERMISSION_KEYS.VIEW_CATALOG,
+    PERMISSION_KEYS.VIEW_ORDERS,
+    PERMISSION_KEYS.MANAGE_ORDERS,
+  ],
   user: [PERMISSION_KEYS.EDIT_PROFILE],
 };
 

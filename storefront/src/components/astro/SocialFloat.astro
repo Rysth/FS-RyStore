@@ -1,0 +1,32 @@
+---
+import SocialFloatButtons, {
+  type SocialLink,
+} from "../islands/SocialFloatButtons";
+import type { StoreSettings } from "../../types/store";
+
+interface Props {
+  settings: StoreSettings | null;
+}
+
+const { settings } = Astro.props;
+
+const whatsappNumber = (settings?.whatsapp || "").replace(/\D/g, "");
+
+// WhatsApp only. It is the channel orders actually run through, so it earns a
+// button that follows the buyer down the page; Instagram, Facebook and TikTok
+// are in the footer, which is where someone looking for them goes. Four stacked
+// circles cost most of a phone's left edge and buried the one that sells.
+//
+// Derived here rather than in the island so the link lands in the initial HTML —
+// same split as InfoBadges.
+const links = [
+  whatsappNumber && {
+    id: "whatsapp",
+    label: "Escríbenos por WhatsApp",
+    href: `https://wa.me/${whatsappNumber}`,
+    color: "#25D366",
+  },
+].filter((link): link is SocialLink => !!link);
+---
+
+<SocialFloatButtons client:load links={links} transition:persist />

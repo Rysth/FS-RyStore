@@ -1,0 +1,153 @@
+---
+import StoreLayout from "../layouts/StoreLayout.astro";
+import Catalog from "../components/islands/Catalog";
+import PromotionCard from "../components/islands/PromotionCard";
+import StoreClosed from "../components/astro/StoreClosed.astro";
+import {
+    ApiError,
+    fetchCategories,
+    fetchProducts,
+    fetchPromotions,
+    fetchSettings,
+} from "../lib/api";
+import { filtersFromQuery } from "../lib/catalogFilters";
+import type {
+    Pagination,
+    StoreCategory,
+    StoreProduct,
+    StorePromotion,
+    StoreSettings,
+} from "../types/store";
+
+// Parsed with the same helper the island uses on popstate, so a shared
+// /?categoria=labios&orden=precio_asc renders server-side exactly as it will
+// behave once hydrated — which is the point of putting filters in the URL.
+const filters = filtersFromQuery(Astro.url.searchParams);
+
+let categories: StoreCategory[] = [];
+let promotions: StorePromotion[] = [];
+let products: StoreProduct[] = [];
+// Fetched here as well as in the layout: this page decides on `published`
+// before it asks for a catalog. The endpoint is cached for ten minutes
+// server-side, so the extra call costs a cache read.
+let settings: StoreSettings | null = null;
+let pagination: Pagination = {
+    current_page: 1,
+    total_pages: 0,
+    total_count: 0,
+    per_page: 12,
+};
+let loadError: string | null = null;
+
+// Settings first, then the catalog: the API answers 503 on the catalog endpoints
+// while the store is unpublished, so asking for products in parallel would turn a
+// deliberate "we are closed" into a generic error.
+try {
+    settings = (await fetchSettings()).store;
+
+    if (settings.published) {
+        // Server-render the first page so crawlers (and slow phones) get real HTML.
+        try {
+            try {
+                categories = (await fetchCategories()).categories;
+            } catch (error) {
+                console.error("[storefront] /api/v1/public/categories failed", error);
+            }
+
+            // Combos are a garnish on the catalog, so a failure here is logged
+            // and swallowed: a shop with no combos and a shop whose combos
+            // failed to load should both still show their products.
+            try {
+                promotions = (await fetchPromotions()).promotions;
+            } catch (error) {
+                console.error("[storefront] /api/v1/public/promotions failed", error);
+            }
+
+            const productData = await fetchProducts({
+                category: filters.category || undefined,
+                search: filters.search || undefined,
+                sort: filters.sort,
+                minPrice: filters.minPrice || undefined,
+                maxPrice: filters.maxPrice || undefined,
+            });
+            products = productData.products;
+            pagination = productData.pagination;
+        } catch (error) {
+            if (error instanceof ApiError && error.status === 503) {
+                settings = { ...settings, published: false };
+            } else {
+                loadError =
+                    error instanceof Error
+                        ? error.message
+                        : "No pudimos cargar el catálogo en este momento.";
+            }
+        }
+    }
+} catch (error) {
+    loadError =
+        error instanceof Error
+            ? error.message
+            : "No pudimos cargar el catálogo en este momento.";
+}
+
+const isClosed = settings != null && !settings.published;
+
+// Combos are the shop's own selection, so they lead the page — but only on the
+// unfiltered catalog. Once the buyer is searching or has picked a category they
+// are looking for something specific, and a combo block would push the results
+// they asked for below the fold.
+const showPromotions =
+    promotions.length > 0 &&
+    !filters.category &&
+    !filters.search &&
+    !filters.minPrice &&
+    !filters.maxPrice;
+---
+
+<StoreLayout
+    title={isClosed ? "Cerrado temporalmente" : "Catálogo"}
+    storeSettings={settings}
+    storeCategories={categories}
+    closed={isClosed}
+    noindex={isClosed}
+    catalogHeader
+>
+
+    <div class="mx-auto w-full max-w-6xl px-4 py-5">
+        {
+            isClosed ? (
+                <StoreClosed settings={settings} />
+            ) : loadError ? (
+                <p class="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    {loadError}
+                </p>
+            ) : (
+                <>
+                    {showPromotions && (
+                        <section class="mb-7">
+                            <div class="mb-3 flex items-baseline justify-between gap-3">
+                                <h2 class="text-lg font-bold">Combos y promociones</h2>
+                                <p class="text-xs text-muted-foreground">
+                                    Llévalos juntos y paga menos
+                                </p>
+                            </div>
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+                                {promotions.map((promotion) => (
+                                    <PromotionCard client:visible promotion={promotion} />
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    <Catalog
+                        client:load
+                        categories={categories}
+                        initialProducts={products}
+                        initialPagination={pagination}
+                        initialFilters={filters}
+                    />
+                </>
+            )
+        }
+    </div>
+</StoreLayout>
