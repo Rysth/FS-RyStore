@@ -1,5 +1,6 @@
 services:
   admin:
+    container_name: ${STACK_NAME:-rystore}-admin
     build:
       context: ./admin
       dockerfile: Dockerfile.dev
@@ -11,13 +12,15 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_URL=${VITE_API_URL}
+      - VITE_STOREFRONT_URL=${STOREFRONT_URL:-http://localhost:4321}
     depends_on:
       api:
         condition: service_healthy
     networks:
-      - base_network
+      - rystore_network
 
   api:
+    container_name: ${STACK_NAME:-rystore}-api
     build:
       context: ./api
       target: development
@@ -34,6 +37,12 @@ services:
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
       - ADMIN_FRONTEND_URL=${ADMIN_FRONTEND_URL:-http://localhost:5173}
       - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-http://localhost:5173}
+      # CORS for /api/v1/public/*: no credentials, no Authorization header.
+      - STOREFRONT_URL=${STOREFRONT_URL:-http://localhost:4321}
+      # Absolute origin asset URLs are built against — the storefront renders
+      # server-side inside Docker, so a container hostname is not resolvable
+      # from the buyer's browser.
+      - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:3000}
       # Mailpit accepts anything and shows it at http://localhost:8025.
       - SMTP_HOST=mailpit
       - SMTP_PORT=1025
@@ -58,9 +67,10 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - base_network
+      - rystore_network
 
   worker:
+    container_name: ${STACK_NAME:-rystore}-worker
     build:
       context: ./api
       target: development
@@ -84,9 +94,38 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - base_network
+      - rystore_network
+
+  # The buyer-facing shop. Astro SSR, so every page is rendered per request —
+  # that is what puts real Open Graph tags in the HTML WhatsApp reads when the
+  # shop pastes a product link into a chat.
+  storefront:
+    container_name: ${STACK_NAME:-rystore}-storefront
+    build:
+      context: ./storefront
+      dockerfile: Dockerfile.dev
+    ports:
+      - "4321:4321"
+    volumes:
+      - ./storefront:/app
+      - /app/node_modules
+    environment:
+      - STOREFRONT_URL=${STOREFRONT_URL:-http://localhost:4321}
+      # Server-side rendering talks to the api container directly. Points at the
+      # container_name, never the service name "api": on a shared network another
+      # client's stack registers that same alias and Docker round-robins between
+      # them, which shows up as intermittent 403s from someone else's API.
+      - API_INTERNAL_URL=${API_INTERNAL_URL:-http://rystore-api:3000}
+      # What the buyer's browser calls (checkout, coupon preview, receipt upload).
+      - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:3000}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - rystore_network
 
   postgres:
+    container_name: ${STACK_NAME:-rystore}-postgres
     image: postgres:16-alpine
     # Do not publish Postgres to host to avoid port conflicts on the dokploy server.
     # Containers on the same compose network can connect to `postgres:5432` internally.
@@ -103,10 +142,11 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - base_network
+      - rystore_network
 
   # Replaces letter_opener_web: development SMTP inbox at http://localhost:8025
   mailpit:
+    container_name: ${STACK_NAME:-rystore}-mailpit
     image: axllent/mailpit:latest
     ports:
       - "8025:8025"
@@ -115,10 +155,10 @@ services:
       - MP_SMTP_AUTH_ACCEPT_ANY=1
       - MP_SMTP_AUTH_ALLOW_INSECURE=1
     networks:
-      - base_network
+      - rystore_network
 
 volumes:
   postgres_data:
 networks:
-  base_network:
+  rystore_network:
     driver: bridge

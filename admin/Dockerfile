@@ -4,8 +4,12 @@ FROM oven/bun:1.2.17 AS build
 WORKDIR /app
 
 # Accept build arguments
+# Vite inlines VITE_* into the bundle at build time, so both origins the panel
+# talks to have to be known here — setting them at runtime does nothing.
 ARG VITE_API_URL
-ENV VITE_API_URL=$VITE_API_URL
+ARG VITE_STOREFRONT_URL
+ENV VITE_API_URL=$VITE_API_URL \
+    VITE_STOREFRONT_URL=$VITE_STOREFRONT_URL
 
 COPY package*.json ./
 RUN bun install

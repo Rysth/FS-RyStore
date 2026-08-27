@@ -4,7 +4,8 @@ services:
       context: ./admin
       args:
         VITE_API_URL: ${VITE_API_URL}
-    container_name: base-admin
+        VITE_STOREFRONT_URL: ${STOREFRONT_URL:-https://tienda.example.com}
+    container_name: ${STACK_NAME:-rystore}-admin
     ports:
       - "5173:5173"
     volumes:
@@ -13,6 +14,7 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_URL=${VITE_API_URL}
+      - VITE_STOREFRONT_URL=${STOREFRONT_URL:-https://tienda.example.com}
       - ADMIN_SERVER_NAME=${ADMIN_SERVER_NAME:-admin.example.com}
       - API_UPSTREAM_SCHEME=${API_UPSTREAM_SCHEME:-https}
       - API_UPSTREAM_HOST=${API_UPSTREAM_HOST:-api.example.com}
@@ -20,19 +22,19 @@ services:
     depends_on:
       - api
     networks:
-      - base_network
+      - rystore_network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.admin.rule=Host(`admin.example.com`)"
-      - "traefik.http.routers.admin.tls=true"
-      - "traefik.http.routers.admin.tls.certresolver=letsencrypt"
-      - "traefik.http.services.admin.loadbalancer.server.port=5173"
+      - "traefik.http.routers.${STACK_NAME:-rystore}-admin.rule=Host(`${ADMIN_SERVER_NAME:-admin.example.com}`)"
+      - "traefik.http.routers.${STACK_NAME:-rystore}-admin.tls=true"
+      - "traefik.http.routers.${STACK_NAME:-rystore}-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.${STACK_NAME:-rystore}-admin.loadbalancer.server.port=5173"
 
   api:
     build:
       context: ./api
       target: production
-    container_name: base-api
+    container_name: ${STACK_NAME:-rystore}-api
     ports:
       - "${PORT}:3000"
     environment:
@@ -40,6 +42,12 @@ services:
       - PORT=3000
       - ADMIN_FRONTEND_URL=${ADMIN_FRONTEND_URL:-https://admin.example.com}
       - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-https://admin.example.com}
+      # CORS for /api/v1/public/*: no credentials, no Authorization header.
+      - STOREFRONT_URL=${STOREFRONT_URL:-https://tienda.example.com}
+      # Absolute origin asset URLs are built against: the storefront renders
+      # server-side inside Docker, so a container hostname would reach the
+      # buyer's browser and resolve to nothing.
+      - PUBLIC_API_URL=${PUBLIC_API_URL:-https://api.example.com}
       - "DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
       - "APP_NAME=${APP_NAME:-R&R Template}"
       - CLOUDFLARE_ENDPOINT=${CLOUDFLARE_ENDPOINT}
@@ -64,19 +72,19 @@ services:
     restart: unless-stopped
     # Postgres is provided externally in production; ensure DATABASE_URL points to it.
     networks:
-      - base_network
+      - rystore_network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`api.example.com`)"
-      - "traefik.http.routers.api.tls=true"
-      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
-      - "traefik.http.services.api.loadbalancer.server.port=3000"
+      - "traefik.http.routers.${STACK_NAME:-rystore}-api.rule=Host(`${API_SERVER_NAME:-api.example.com}`)"
+      - "traefik.http.routers.${STACK_NAME:-rystore}-api.tls=true"
+      - "traefik.http.routers.${STACK_NAME:-rystore}-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.${STACK_NAME:-rystore}-api.loadbalancer.server.port=3000"
 
   worker:
     build:
       context: ./api
       target: production
-    container_name: base-worker
+    container_name: ${STACK_NAME:-rystore}-worker
     command: ["node", "src/jobs/worker.ts"]
     environment:
       - NODE_ENV=production
@@ -101,8 +109,46 @@ services:
     restart: unless-stopped
     # Postgres is external in production; ensure env vars point to that service.
     networks:
-      - base_network
+      - rystore_network
+
+  # The buyer-facing shop. Astro SSR, so every page is rendered per request —
+  # that is what puts real Open Graph tags in the HTML WhatsApp reads when the
+  # shop pastes a product link into a chat.
+  storefront:
+    build:
+      context: ./storefront
+      # PUBLIC_API_URL must be a build arg, not only a runtime env: Astro inlines
+      # PUBLIC_* into the client bundle at build time, so setting it at runtime
+      # leaves the checkout calling an empty origin.
+      args:
+        PUBLIC_API_URL: ${PUBLIC_API_URL:-https://api.example.com}
+        STOREFRONT_URL: ${STOREFRONT_URL:-https://tienda.example.com}
+    container_name: ${STACK_NAME:-rystore}-storefront
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=4321
+      - STOREFRONT_URL=${STOREFRONT_URL:-https://tienda.example.com}
+      # Server-side rendering talks to the api container directly. Points at the
+      # container_name, never the service name "api": on a shared network
+      # (dokploy-network) another client's stack registers that same alias and
+      # Docker round-robins between them, which shows up as intermittent 403s
+      # served from someone else's API.
+      - API_INTERNAL_URL=${API_INTERNAL_URL:-http://rystore-api:3000}
+      - PUBLIC_API_URL=${PUBLIC_API_URL:-https://api.example.com}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - rystore_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${STACK_NAME:-rystore}-storefront.rule=Host(`${STOREFRONT_SERVER_NAME:-tienda.example.com}`)"
+      - "traefik.http.routers.${STACK_NAME:-rystore}-storefront.tls=true"
+      - "traefik.http.routers.${STACK_NAME:-rystore}-storefront.tls.certresolver=letsencrypt"
+      - "traefik.http.services.${STACK_NAME:-rystore}-storefront.loadbalancer.server.port=4321"
 
 networks:
-  base_network:
+  rystore_network:
     driver: bridge
