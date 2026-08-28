@@ -1,7 +1,7 @@
 ---
 import StoreLayout from "../layouts/StoreLayout.astro";
 import Catalog from "../components/islands/Catalog";
-import PromotionCard from "../components/islands/PromotionCard";
+import PromotionBubbles from "../components/islands/PromotionBubbles";
 import StoreClosed from "../components/astro/StoreClosed.astro";
 import {
     ApiError,
@@ -108,6 +108,7 @@ const showPromotions =
     title={isClosed ? "Cerrado temporalmente" : "Catálogo"}
     storeSettings={settings}
     storeCategories={categories}
+    storePromotions={promotions}
     closed={isClosed}
     noindex={isClosed}
     catalogHeader
@@ -124,18 +125,14 @@ const showPromotions =
             ) : (
                 <>
                     {showPromotions && (
-                        <section class="mb-7">
+                        <section id="combos" class="mb-7 scroll-mt-20">
                             <div class="mb-3 flex items-baseline justify-between gap-3">
-                                <h2 class="text-lg font-bold">Combos y promociones</h2>
-                                <p class="text-xs text-muted-foreground">
-                                    Llévalos juntos y paga menos
+                                <h2 class="text-lg font-bold">Ofertas</h2>
+                                <p class="hidden text-xs text-muted-foreground sm:block">
+                                    Toca uno y mira qué trae
                                 </p>
                             </div>
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-                                {promotions.map((promotion) => (
-                                    <PromotionCard client:visible promotion={promotion} />
-                                ))}
-                            </div>
+                            <PromotionBubbles client:visible promotions={promotions} />
                         </section>
                     )}
 

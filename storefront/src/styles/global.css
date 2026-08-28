@@ -74,6 +74,31 @@ layer(base);
   }
 }
 
+/* A slow ring that expands and fades behind a combo bubble — "tap me", not
+   "look at me". Tailwind's built-in animate-ping is built for a live status
+   dot (1s, no easing pause); this is a third of the pace with a hold at each
+   end, closer to a heartbeat than a flash. */
+@utility combo-invite {
+  animation: combo-invite 2.6s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes combo-invite {
+  0%,
+  15% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  70%,
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
 /* Rendered product descriptions (HTML from the admin's editor, sanitized by the
    API). Tailwind's preflight strips list markers and heading sizes, so the
    allowed tags need their formatting back — otherwise a bulleted list the shop

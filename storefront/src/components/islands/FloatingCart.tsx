@@ -1,40 +1,32 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useStore } from "@nanostores/react";
 import { cartItems, lineKey, totalAmount, totalItems } from "../../lib/cart";
-import { cartOpen, closeCart, openCart, stickyCtaVisible } from "../../lib/cartUi";
+import { cartOpen, closeCart } from "../../lib/cartUi";
 import { formatPrice } from "../../lib/format";
 import { useDrawer } from "../../lib/useDrawer";
 import CartLineItem from "./CartLineItem";
 import { BagIcon, CloseIcon } from "./icons";
 
-/** Routes where a floating cart button would be redundant or in the way. */
-const HIDDEN_ON = ["/carrito", "/checkout"];
-
 /**
- * Fixed cart button plus the slide-in drawer it opens. Mounted once in the
- * layout so it survives every storefront route.
+ * The cart drawer. No trigger button of its own — the header's CartBadge and
+ * the floating rail's cart button (FloatingRail.tsx) both open it through the
+ * shared `cartOpen` store, so this only has to exist once per page and stay
+ * out of the way of wherever the trigger actually is.
  */
 export default function FloatingCart() {
   const items = useStore(cartItems);
   const count = useStore(totalItems);
   const amount = useStore(totalAmount);
   const isOpen = useStore(cartOpen);
-  const stickyCta = useStore(stickyCtaVisible);
 
-  const [pathname, setPathname] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setPathname(window.location.pathname);
-
     // View transitions swap the document without a full load, and cartOpen is a
     // nanostore that outlives the swap — so a drawer opened on one page stayed
     // on top of the next one. Every navigation closes it, which also covers the
     // back button and any link added later.
-    const onPageLoad = () => {
-      setPathname(window.location.pathname);
-      closeCart();
-    };
+    const onPageLoad = () => closeCart();
 
     document.addEventListener("astro:page-load", onPageLoad);
     return () => document.removeEventListener("astro:page-load", onPageLoad);
@@ -42,32 +34,8 @@ export default function FloatingCart() {
 
   useDrawer(isOpen, panelRef, closeCart);
 
-  // The product page's sticky bar claims the bottom of the screen, so the
-  // floating button would land on top of it.
-  const hideButton = count === 0 || stickyCta || HIDDEN_ON.includes(pathname);
-
   return (
     <>
-      {!hideButton && (
-        <button
-          type="button"
-          onClick={openCart}
-          className="fixed right-4 z-50 flex size-14 items-center justify-center rounded-full text-white shadow-lg transition-transform active:scale-95"
-          style={{
-            backgroundColor: "var(--rystore-primary)",
-            // Matches the social rail on the left; keeps the button off the
-            // phone's home indicator.
-            bottom: "calc(1.25rem + env(safe-area-inset-bottom))",
-          }}
-          aria-label={`Ver carrito (${count} ${count === 1 ? "artículo" : "artículos"})`}
-        >
-          <BagIcon className="size-6" />
-          <span className="absolute -right-1 -top-1 flex min-w-6 items-center justify-center rounded-full border-2 border-background bg-foreground px-1 text-xs font-bold text-background">
-            {count > 99 ? "99+" : count}
-          </span>
-        </button>
-      )}
-
       <div
         className={`fixed inset-0 z-50 bg-black/50 transition-opacity duration-200 ${
           isOpen ? "opacity-100" : "pointer-events-none opacity-0"

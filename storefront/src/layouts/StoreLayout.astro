@@ -1,12 +1,12 @@
 ---
 import { ClientRouter } from "astro:transitions";
-import { fetchCategories, fetchSettings } from "../lib/api";
-import type { StoreCategory, StoreSettings } from "../types/store";
+import { fetchCategories, fetchPromotions, fetchSettings } from "../lib/api";
+import type { StoreCategory, StorePromotion, StoreSettings } from "../types/store";
 import Header from "../components/astro/Header.astro";
 import Footer from "../components/astro/Footer.astro";
-import SocialFloat from "../components/astro/SocialFloat.astro";
 import StoreClosed from "../components/astro/StoreClosed.astro";
 import FloatingCart from "../components/islands/FloatingCart";
+import FloatingRail from "../components/islands/FloatingRail";
 import "../styles/global.css";
 
 interface Props {
@@ -16,6 +16,12 @@ interface Props {
   storeSettings?: StoreSettings | null;
   /** Pass the ones the page already fetched; omit and the layout fetches them. */
   storeCategories?: StoreCategory[];
+  /**
+   * Same contract as storeCategories. Needed on every page, not just the
+   * home one: the floating "Ofertas" rail button (FloatingRail) only shows up
+   * when there's a live combo to point at.
+   */
+  storePromotions?: StorePromotion[];
   closed?: boolean;
   /** Buyer-specific pages (order confirmation) must stay out of search results. */
   noindex?: boolean;
@@ -31,6 +37,7 @@ const {
   image,
   storeSettings,
   storeCategories,
+  storePromotions,
   closed,
   noindex = false,
   ogType = "website",
@@ -59,6 +66,17 @@ if (storeCategories === undefined) {
   }
 }
 
+// Only decides whether the floating "Ofertas" button has something to point
+// at, so a failure here costs a hidden button, not a broken page.
+let promotions: StorePromotion[] = storePromotions ?? [];
+if (storePromotions === undefined) {
+  try {
+    promotions = (await fetchPromotions()).promotions;
+  } catch {
+    // No combo shortcut this load; the home page still shows them itself.
+  }
+}
+
 const shopName = settings?.name || "RyStore";
 const isClosed = closed ?? settings?.published === false;
 const pageTitle = isClosed
@@ -72,6 +90,10 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 const ogImage = image || settings?.logo_url || null;
 const favicon = settings?.logo_url || null;
 const primary = settings?.primary_color || "#E11D48";
+
+// Derived here rather than in the island so the link lands in the initial
+// HTML, same reasoning FloatingRail's predecessor used.
+const whatsappNumber = (settings?.whatsapp || "").replace(/\D/g, "");
 ---
 
 <html lang="es">
@@ -132,7 +154,13 @@ const primary = settings?.primary_color || "#E11D48";
 
             <Footer settings={settings} />
 
-            <SocialFloat settings={settings} />
+            <FloatingRail
+              client:load
+              whatsappNumber={whatsappNumber}
+              hasPromotions={promotions.length > 0}
+              pathname={Astro.url.pathname}
+              transition:persist
+            />
             <FloatingCart client:load transition:persist />
           </>
         )

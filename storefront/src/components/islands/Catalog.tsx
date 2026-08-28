@@ -11,7 +11,6 @@ import {
   searchQuery,
   setActiveFilterCount,
 } from "../../lib/catalogUi";
-import CategoryBubbles from "./CategoryBubbles";
 import ProductCard from "./ProductCard";
 import { SpinnerIcon } from "./icons";
 
@@ -168,15 +167,12 @@ export default function Catalog({
   // does, rather than re-deriving the rule on the other side of the store.
   useEffect(() => {
     setActiveFilterCount(
-      (filters.sort !== "recientes" ? 1 : 0) +
+      (filters.category ? 1 : 0) +
+        (filters.sort !== "recientes" ? 1 : 0) +
         (filters.minPrice ? 1 : 0) +
         (filters.maxPrice ? 1 : 0),
     );
-  }, [filters.sort, filters.minPrice, filters.maxPrice]);
-
-  const featuredCategories = categories.filter((c) => c.featured);
-  const shownCategories =
-    featuredCategories.length > 0 ? featuredCategories : categories;
+  }, [filters.category, filters.sort, filters.minPrice, filters.maxPrice]);
 
   const [showBackToTop, setShowBackToTop] = useState(false);
 
@@ -191,14 +187,24 @@ export default function Catalog({
 
   return (
     <div className="space-y-5">
-      <CategoryBubbles
-        categories={shownCategories}
-        active={filters.category}
-        onSelect={(slug) => update({ category: slug })}
-      />
-
       {isFiltersOpen && (
-        <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 sm:grid-cols-3">
+        <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 sm:grid-cols-4">
+          <label className="space-y-1 text-sm">
+            <span className="block text-xs text-muted-foreground">Categoría</span>
+            <select
+              value={filters.category}
+              onChange={(event) => update({ category: event.target.value })}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Todas</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.slug}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className="space-y-1 text-sm">
             <span className="block text-xs text-muted-foreground">Ordenar por</span>
             <select
@@ -244,15 +250,16 @@ export default function Catalog({
             />
           </label>
 
-          {(filters.sort !== "recientes" ||
+          {(filters.category ||
+            filters.sort !== "recientes" ||
             filters.minPrice ||
             filters.maxPrice) && (
             <button
               type="button"
               onClick={() =>
-                update({ sort: "recientes", minPrice: "", maxPrice: "" })
+                update({ category: "", sort: "recientes", minPrice: "", maxPrice: "" })
               }
-              className="justify-self-start text-xs underline text-muted-foreground hover:text-foreground sm:col-span-3"
+              className="justify-self-start text-xs underline text-muted-foreground hover:text-foreground sm:col-span-4"
             >
               Limpiar filtros
             </button>

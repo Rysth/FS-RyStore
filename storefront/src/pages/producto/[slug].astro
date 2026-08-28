@@ -1,12 +1,13 @@
 ---
 import StoreLayout from "../../layouts/StoreLayout.astro";
 import AddToCart from "../../components/islands/AddToCart";
+import PromotionCard from "../../components/islands/PromotionCard";
 import ProductCard from "../../components/islands/ProductCard";
 import ProductGallery from "../../components/islands/ProductGallery";
-import { ApiError, fetchProduct, fetchSettings } from "../../lib/api";
+import { ApiError, fetchProduct, fetchPromotions, fetchSettings } from "../../lib/api";
 import { htmlToText } from "../../lib/html";
 import { bestTierPrice } from "../../lib/pricing";
-import type { StoreProduct, StoreSettings } from "../../types/store";
+import type { StoreProduct, StorePromotion, StoreSettings } from "../../types/store";
 
 const { slug } = Astro.params;
 
@@ -42,6 +43,24 @@ try {
     error instanceof Error
       ? error.message
       : "No pudimos cargar este producto en este momento.";
+}
+
+// The upsell: if this product rides along in a combo, that is a stronger
+// pitch right here than "también te puede gustar" ever is — the buyer is
+// already looking at one of the combo's own pieces. Only the first match is
+// shown; a product in more than one live combo is rare, and stacking full
+// PromotionCards under the buy button would bury it instead of nudging it.
+let comboUpsell: StorePromotion | null = null;
+if (product) {
+  try {
+    const { promotions } = await fetchPromotions();
+    comboUpsell =
+      promotions.find((promotion) =>
+        promotion.items.some((item) => item.product.id === product!.id),
+      ) ?? null;
+  } catch {
+    // A missed upsell is not worth failing the product page over.
+  }
 }
 
 const unavailableTitle = "Producto no disponible";
@@ -162,6 +181,17 @@ const pageImage = loadedProduct?.image_url || undefined;
         <h1 class="text-2xl font-bold sm:text-3xl">{loadedProduct.name}</h1>
 
         <AddToCart client:load product={loadedProduct} />
+
+        {
+          comboUpsell && (
+            <div class="border-t border-border/60 pt-5">
+              <h2 class="mb-2 text-sm font-semibold">Llévalo en combo y ahorra</h2>
+              <div class="max-w-sm">
+                <PromotionCard client:visible promotion={comboUpsell} />
+              </div>
+            </div>
+          )
+        }
 
         {
           loadedProduct.description && (

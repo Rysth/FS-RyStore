@@ -7,10 +7,18 @@ import { CheckIcon, PlusIcon } from "./icons";
 
 interface Props {
   promotion: StorePromotion;
+  /**
+   * Rendered inside the combo bottom sheet (PromotionBubbles) rather than
+   * standalone in a grid: drop the outer card border and corner radius, since
+   * the sheet already draws its own.
+   */
+  embedded?: boolean;
 }
 
 /**
- * One combo on the home page.
+ * The full detail view of one combo: photo, contents, price and the "llevar
+ * el combo" action. Standalone it was a card in a grid; now it is what a combo
+ * bubble opens into (see PromotionBubbles.tsx), via `embedded`.
  *
  * Two ways to buy, on purpose: the big button takes the whole bundle at the
  * combo price, and every product in it also carries its own "+" that adds just
@@ -21,7 +29,7 @@ interface Props {
  * so its row links to the product page instead. (The server refuses to put such
  * a product in a combo, so this is a guard, not a common case.)
  */
-export default function PromotionCard({ promotion }: Props) {
+export default function PromotionCard({ promotion, embedded = false }: Props) {
   const [added, setAdded] = useState<string | null>(null);
 
   const savings = Number(promotion.savings);
@@ -48,8 +56,16 @@ export default function PromotionCard({ promotion }: Props) {
   }
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card">
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+    <article
+      className={
+        embedded
+          ? "flex flex-col"
+          : "flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card"
+      }
+    >
+      <div
+        className={`relative aspect-[4/3] overflow-hidden bg-muted ${embedded ? "rounded-2xl" : ""}`}
+      >
         {promotion.image_url ? (
           <img
             src={promotion.image_url}
