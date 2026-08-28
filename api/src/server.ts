@@ -52,11 +52,22 @@ export async function buildServer() {
   // The storefront half carries no credentials and allows no Authorization
   // header: nothing under /public is session-bound, and a cookie sent there
   // would be a mistake. Rails expressed this as a second `allow` block.
+  //
+  // The admin's own origin is allowed here too, alongside the storefront's:
+  // AuthLayout and AppSidebar read /public/business to show the shop's name
+  // and logo before a session exists (the sign-in screen) and as a fallback
+  // while /businesses/current is still loading. Nothing under /public needs
+  // a session to answer in the first place — any non-browser client can
+  // already call it from anywhere — so this widens who the *browser* lets
+  // read it, not what the route allows.
   await app.register(cors, {
     delegator(request: FastifyRequest, callback: (error: Error | null, options: FastifyCorsOptions) => void) {
       if (request.url.startsWith("/api/v1/public/")) {
         return callback(null, {
-          origin: env.STOREFRONT_ALLOWED_ORIGINS ?? [env.STOREFRONT_URL],
+          origin: [
+            ...(env.STOREFRONT_ALLOWED_ORIGINS ?? [env.STOREFRONT_URL]),
+            ...env.ADMIN_ALLOWED_ORIGINS,
+          ],
           credentials: false,
           methods: ["GET", "POST", "OPTIONS"],
           exposedHeaders: ["API-Version", "Retry-After"],

@@ -58,6 +58,12 @@ services:
       - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
       - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
       - CLOUDFLARE_BUCKET_NAME=${CLOUDFLARE_BUCKET_NAME}
+      # The public origin every uploaded object's URL is built against
+      # (lib/serializers.ts's assetUrl). Without this, a real upload still
+      # succeeds — the object lands in the bucket — but every *_url field
+      # the API returns for it stays "", since there is nothing to build a
+      # link from.
+      - CLOUDFLARE_PUBLIC_URL=${CLOUDFLARE_PUBLIC_URL}
       - "SMTP_HOST=${SMTP_HOST}"
       - "SMTP_PORT=${SMTP_PORT}"
       - "SMTP_USER=${SMTP_USER}"
@@ -103,6 +109,12 @@ services:
       - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
       - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
       - CLOUDFLARE_BUCKET_NAME=${CLOUDFLARE_BUCKET_NAME}
+      # The public origin every uploaded object's URL is built against
+      # (lib/serializers.ts's assetUrl). Without this, a real upload still
+      # succeeds — the object lands in the bucket — but every *_url field
+      # the API returns for it stays "", since there is nothing to build a
+      # link from.
+      - CLOUDFLARE_PUBLIC_URL=${CLOUDFLARE_PUBLIC_URL}
       - "SMTP_HOST=${SMTP_HOST}"
       - "SMTP_PORT=${SMTP_PORT}"
       - "SMTP_USER=${SMTP_USER}"
