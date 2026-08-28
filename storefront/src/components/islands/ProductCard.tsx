@@ -76,7 +76,9 @@ export default function ProductCard({ product }: Props) {
         </div>
 
         <div className="flex flex-1 flex-col gap-1 p-3">
-          <h3 className="line-clamp-2 text-sm font-medium leading-snug">{product.name}</h3>
+          <h3 className="line-clamp-2 break-words text-sm font-medium leading-snug [overflow-wrap:anywhere]">
+            {product.name}
+          </h3>
 
           <div className="mt-auto pt-1">
             <div className="flex items-baseline gap-1.5">
@@ -96,20 +98,20 @@ export default function ProductCard({ product }: Props) {
           type="button"
           onClick={toggleCart}
           disabled={isOutOfStock && !hasVariants}
-          className={`flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+          className={`inline-flex w-fit items-center justify-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors ${
             hasVariants
-              ? "bg-muted text-foreground hover:bg-muted/80"
+              ? "border-border bg-muted text-foreground hover:bg-muted/80"
               : cartQuantity > 0
-                ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                : "bg-foreground text-background hover:bg-foreground/90"
-          } disabled:opacity-40 disabled:cursor-not-allowed`}
+                ? "border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                : "border-transparent bg-foreground text-background hover:bg-foreground/90"
+          } disabled:cursor-not-allowed disabled:opacity-40`}
         >
           {hasVariants ? (
             <>
               <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m9 18 6-6-6-6" />
               </svg>
-              Ver opciones
+              Opciones
             </>
           ) : cartQuantity > 0 ? (
             <>
@@ -117,7 +119,7 @@ export default function ProductCard({ product }: Props) {
                 <path d="M18 6 6 18" />
                 <path d="m6 6 12 12" />
               </svg>
-              Quitar del carrito
+              Quitar
               {cartQuantity > 1 && <span className="ml-0.5">({cartQuantity})</span>}
             </>
           ) : (
@@ -126,7 +128,7 @@ export default function ProductCard({ product }: Props) {
                 <path d="M5 12h14" />
                 <path d="M12 5v14" />
               </svg>
-              Agregar al carrito
+              Agregar
             </>
           )}
         </button>
