@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { eq, like } from "drizzle-orm";
 import { buildServer } from "../src/server.ts";
 import { closeDatabase, db } from "../src/db/client.ts";
-import { businesses, orders, products } from "../src/db/schema.ts";
+import { businesses, orders, products, promotions } from "../src/db/schema.ts";
 import { getBusiness } from "../src/services/business.ts";
 
 /**
@@ -194,6 +194,24 @@ describe("cupones", () => {
       response.json().message,
       "El cupón no es válido, expiró o alcanzó su límite de uso",
     );
+  });
+
+  it("previsualiza descuento con un combo en el carrito", async () => {
+    const [combo] = await db
+      .select({ id: promotions.id })
+      .from(promotions)
+      .where(eq(promotions.slug, "demo-combo-basico"))
+      .limit(1);
+
+    const response = await post("/api/v1/public/coupons/validate", {
+      code: "DEMO10",
+      items: [{ promotion_id: combo!.id, quantity: 1 }],
+    });
+
+    assert.equal(response.statusCode, 200, response.body);
+    assert.equal(response.json().subtotal, "12.00");
+    assert.equal(response.json().discount_amount, "1.20");
+    assert.equal(response.json().total, "10.80");
   });
 });
 

@@ -22,9 +22,18 @@ import type {
  * On a host running several clients' stacks a wrong guess here is worse than a
  * connection error — it can reach another client's API — so compose always sets
  * API_INTERNAL_URL explicitly and this branch should never be taken.
+ *
+ * Read via process.env, not import.meta.env: Vite statically replaces
+ * `import.meta.env.X` with whatever X was at *build* time, for every var —
+ * not just PUBLIC_ ones. API_INTERNAL_URL is only ever passed as a runtime
+ * environment variable (never a build arg, on purpose — it must vary per
+ * deployment and has no business in the client bundle), so building it via
+ * import.meta.env baked in `undefined` and silently froze in the wrong
+ * fallback host at build time, regardless of what the container's real
+ * environment set at runtime. process.env.X is read fresh on every request.
  */
 const INTERNAL_BASE = (
-  import.meta.env.API_INTERNAL_URL || "http://rystore-api:3000"
+  process.env.API_INTERNAL_URL || "http://rystore-api:3000"
 ).replace(/\/$/, "");
 
 const PUBLIC_BASE = (import.meta.env.PUBLIC_API_URL || "").replace(/\/$/, "");
