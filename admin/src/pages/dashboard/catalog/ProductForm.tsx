@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowLeft, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Trash2, Upload, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -974,26 +974,75 @@ export default function ProductForm() {
             </CardContent>
           </Card>
 
-          {/* Gallery and video only once the product exists: both are files
-              that belong to a product id, and there is nothing to attach them
-              to before the first save. Creating a product still uses the single
-              image field below, then the gallery takes over on the edit page. */}
-          {product && (
-            <Card className="border-border/60">
-              <CardContent className="space-y-5 p-5">
-                <ProductGalleryManager
-                  product={product}
-                  onChanged={setProduct}
-                />
-                <div className="border-t border-border/60 pt-5">
-                  <ProductVideoManager
+          <Card className="border-border/60">
+            <CardContent className="space-y-5 p-5">
+              {product ? (
+                <>
+                  <ProductGalleryManager
                     product={product}
                     onChanged={setProduct}
                   />
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                  <div className="border-t border-border/60 pt-5">
+                    <ProductVideoManager
+                      product={product}
+                      onChanged={setProduct}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>Galería</Label>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Sin imágenes en la galería todavía.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled
+                    >
+                      <Upload className="mr-1.5 size-3.5" />
+                      Agregar imágenes
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground">
+                      La principal se usa en el catálogo y al compartir por WhatsApp. Hasta 3 fotos, JPG, PNG o WEBP, máximo 2MB cada una.
+                    </p>
+                  </div>
+                  <div className="border-t border-border/60 pt-5">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label>Video</Label>
+                      </div>
+                      <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Video className="size-3.5" />
+                        Este producto todavía no tiene video.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        disabled
+                      >
+                        <Upload className="mr-1.5 size-3.5" />
+                        Subir video
+                      </Button>
+                      <p className="text-[11px] text-muted-foreground">
+                        Un solo video por producto, de máximo 45 segundos. MP4, WEBM o MOV, hasta 20MB. Se muestra junto a las fotos en la ficha del producto.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+                    Guarda el producto primero para poder agregar galería y video.
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
 
           <Card className="border-border/60">
             <CardContent className="space-y-1.5 p-5">

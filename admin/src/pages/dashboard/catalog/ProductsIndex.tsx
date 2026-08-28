@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +17,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -40,27 +49,32 @@ import { errorMessage } from "../../../utils/apiError";
 
 const PER_PAGE = 12;
 
-// Creating and editing live on their own routes now, so the only dialog left
-// here is the delete confirmation — which is the one place a modal is right,
-// since it interrupts on purpose.
 interface ProductsState {
   search: string;
   categoryId: string;
   deleteOpen: boolean;
   selected: Product | null;
+  selectedIds: number[];
+  bulkOpen: boolean;
 }
 
 type ProductsAction =
   | { type: "SET_SEARCH"; payload: string }
   | { type: "SET_CATEGORY"; payload: string }
   | { type: "OPEN_DELETE"; payload: Product }
-  | { type: "CLOSE" };
+  | { type: "CLOSE" }
+  | { type: "TOGGLE_ID"; payload: number }
+  | { type: "SET_IDS"; payload: number[] }
+  | { type: "OPEN_BULK" }
+  | { type: "CLOSE_BULK" };
 
 const initialState: ProductsState = {
   search: "",
   categoryId: "",
   deleteOpen: false,
   selected: null,
+  selectedIds: [],
+  bulkOpen: false,
 };
 
 function productsReducer(
@@ -69,13 +83,25 @@ function productsReducer(
 ): ProductsState {
   switch (action.type) {
     case "SET_SEARCH":
-      return { ...state, search: action.payload };
+      return { ...state, search: action.payload, selectedIds: [] };
     case "SET_CATEGORY":
-      return { ...state, categoryId: action.payload };
+      return { ...state, categoryId: action.payload, selectedIds: [] };
     case "OPEN_DELETE":
       return { ...state, deleteOpen: true, selected: action.payload };
     case "CLOSE":
       return { ...state, deleteOpen: false, selected: null };
+    case "TOGGLE_ID": {
+      const ids = state.selectedIds.includes(action.payload)
+        ? state.selectedIds.filter((id) => id !== action.payload)
+        : [...state.selectedIds, action.payload];
+      return { ...state, selectedIds: ids };
+    }
+    case "SET_IDS":
+      return { ...state, selectedIds: action.payload };
+    case "OPEN_BULK":
+      return { ...state, bulkOpen: true };
+    case "CLOSE_BULK":
+      return { ...state, bulkOpen: false };
     default:
       return state;
   }
@@ -84,17 +110,23 @@ function productsReducer(
 export default function ProductsIndex() {
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
-  const { products, pagination, isLoading, fetchProducts, deleteProduct } =
+  const { products, pagination, isLoading, fetchProducts, deleteProduct, bulkUpdateProducts } =
     useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
 
   const [state, dispatch] = useReducer(productsReducer, initialState);
   const [confirmName, setConfirmName] = useState("");
+  const [bulkCategory, setBulkCategory] = useState<string>("");
+  const [bulkActive, setBulkActive] = useState<boolean | null>(null);
   const canManage = hasPermission(Permissions.MANAGE_CATALOG);
   const hasFilters = Boolean(state.search || state.categoryId);
-  // Acciones only renders for managers, so an empty row that spans a fixed 6
-  // used to leave a stray column behind for everyone else.
-  const columnCount = canManage ? 6 : 5;
+
+  const allSelected =
+    products.length > 0 && products.every((p) => state.selectedIds.includes(p.id));
+  const someSelected =
+    products.some((p) => state.selectedIds.includes(p.id)) && !allSelected;
+
+  const columnCount = canManage ? 7 : 6;
 
   const clearFilters = () => {
     dispatch({ type: "SET_SEARCH", payload: "" });
@@ -114,13 +146,12 @@ export default function ProductsIndex() {
     }).catch((error) => toast.error(errorMessage(error, "Ocurrió un error inesperado")));
   }, [fetchProducts, state.search, state.categoryId]);
 
-  // No reload helper any more: saving navigates back here, and the effect above
-  // refetches on mount.
   const handlePageChange = ({ selected }: { selected: number }) => {
     fetchProducts(selected + 1, PER_PAGE, {
       search: state.search,
       category_id: state.categoryId,
     }).catch((error) => toast.error(errorMessage(error, "Ocurrió un error inesperado")));
+    dispatch({ type: "SET_IDS", payload: [] });
   };
 
   const handleDelete = async () => {
@@ -132,6 +163,33 @@ export default function ProductsIndex() {
       setConfirmName("");
     } catch (error) {
       toast.error(errorMessage(error, "Error al eliminar el producto"));
+    }
+  };
+
+  const handleBulkApply = async () => {
+    if (state.selectedIds.length === 0) return;
+    const payload: { category_id?: number | null; active?: boolean } = {};
+    if (bulkCategory !== "") payload.category_id = bulkCategory === "null" ? null : Number(bulkCategory);
+    if (bulkActive !== null) payload.active = bulkActive;
+
+    if (Object.keys(payload).length === 0) {
+      toast.error("Selecciona al menos un cambio");
+      return;
+    }
+
+    try {
+      await bulkUpdateProducts(state.selectedIds, payload);
+      toast.success("Productos actualizados correctamente");
+      dispatch({ type: "CLOSE_BULK" });
+      dispatch({ type: "SET_IDS", payload: [] });
+      setBulkCategory("");
+      setBulkActive(null);
+      await fetchProducts(pagination.current_page, PER_PAGE, {
+        search: state.search,
+        category_id: state.categoryId,
+      });
+    } catch (error) {
+      toast.error(errorMessage(error, "Error al actualizar los productos"));
     }
   };
 
@@ -175,11 +233,78 @@ export default function ProductsIndex() {
         </select>
       </div>
 
+      {canManage && state.selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+          <span className="text-sm font-medium">
+            {state.selectedIds.length} seleccionado(s)
+          </span>
+          <select
+            value={bulkCategory}
+            onChange={(e) => setBulkCategory(e.target.value)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+            aria-label="Cambiar categoría"
+          >
+            <option value="">Cambiar categoría…</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+            <option value="null">Sin categoría</option>
+          </select>
+          <select
+            value={bulkActive === null ? "" : String(bulkActive)}
+            onChange={(e) =>
+              setBulkActive(e.target.value === "" ? null : e.target.value === "true")
+            }
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+            aria-label="Cambiar estado"
+          >
+            <option value="">Cambiar estado…</option>
+            <option value="true">Visible</option>
+            <option value="false">Oculto</option>
+          </select>
+          <Button size="sm" onClick={() => dispatch({ type: "OPEN_BULK" })}>
+            Aplicar
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              dispatch({ type: "SET_IDS", payload: [] });
+              setBulkCategory("");
+              setBulkActive(null);
+            }}
+          >
+            Limpiar
+          </Button>
+        </div>
+      )}
+
       <Card className="rounded-xl p-0">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                {canManage && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allSelected}
+                      data-state={someSelected ? "indeterminate" : allSelected ? "checked" : "unchecked"}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          dispatch({
+                            type: "SET_IDS",
+                            payload: products.map((p) => p.id),
+                          });
+                        } else {
+                          dispatch({ type: "SET_IDS", payload: [] });
+                        }
+                      }}
+                      aria-label="Seleccionar todos"
+                    />
+                  </TableHead>
+                )}
                 <TableHead>Producto</TableHead>
                 <TableHead>Categoría</TableHead>
                 <TableHead>Precio</TableHead>
@@ -230,6 +355,17 @@ export default function ProductsIndex() {
               ) : (
                 products.map((product) => (
                   <TableRow key={product.id}>
+                    {canManage && (
+                      <TableCell className="w-10">
+                        <Checkbox
+                          checked={state.selectedIds.includes(product.id)}
+                          onCheckedChange={() =>
+                            dispatch({ type: "TOGGLE_ID", payload: product.id })
+                          }
+                          aria-label={`Seleccionar ${product.name}`}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="size-10 shrink-0 overflow-hidden rounded-md bg-muted">
@@ -364,6 +500,41 @@ export default function ProductsIndex() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={state.bulkOpen} onOpenChange={(open) => !open && dispatch({ type: "CLOSE_BULK" })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Actualizar productos en lote</DialogTitle>
+            <DialogDescription>
+              Se aplicarán los cambios a {state.selectedIds.length} producto(s).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            {bulkCategory !== "" && (
+              <p>
+                <span className="font-medium">Categoría:</span>{" "}
+                {bulkCategory === "null"
+                  ? "Sin categoría"
+                  : categories.find((c) => String(c.id) === bulkCategory)?.name || bulkCategory}
+              </p>
+            )}
+            {bulkActive !== null && (
+              <p>
+                <span className="font-medium">Estado:</span>{" "}
+                {bulkActive ? "Visible" : "Oculto"}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => dispatch({ type: "CLOSE_BULK" })}>
+              Cancelar
+            </Button>
+            <Button onClick={handleBulkApply} disabled={isLoading}>
+              Aplicar cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

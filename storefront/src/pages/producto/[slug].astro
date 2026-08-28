@@ -102,8 +102,12 @@ const jsonLd = loadedProduct ? {
   "@type": "Product",
   name: loadedProduct.name,
   description: descriptionText || undefined,
-  image: loadedProduct.image_url || undefined,
+  image: galleryImages.length > 0 ? galleryImages : loadedProduct.image_url || undefined,
   category: loadedProduct.category_name || undefined,
+  sku: loadedProduct.slug,
+  brand: settings?.name
+    ? { "@type": "Brand", name: settings.name }
+    : undefined,
   offers: {
     "@type": "Offer",
     price: Number(loadedProduct.price).toFixed(2),

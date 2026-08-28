@@ -56,6 +56,10 @@ interface ProductState {
   createProduct: (data: ProductFormData) => Promise<Product>;
   updateProduct: (id: number, data: ProductFormData) => Promise<void>;
   deleteProduct: (id: number) => Promise<void>;
+  bulkUpdateProducts: (
+    ids: number[],
+    data: { category_id?: number | null; active?: boolean },
+  ) => Promise<void>;
   /**
    * The image travels on its own endpoint instead of riding along in the
    * product payload: that payload carries the nested price_tiers ladder, and
@@ -176,6 +180,18 @@ export const useProductStore = create<ProductState>((set, get) => ({
       }));
     } catch (error) {
       const message = apiErrorMessage(error, "Error al eliminar el producto");
+      set({ error: message, isLoading: false });
+      throw new Error(message);
+    }
+  },
+
+  bulkUpdateProducts: async (ids, data) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.patch("/api/v1/products/bulk", { ids, ...data });
+      set({ isLoading: false });
+    } catch (error) {
+      const message = apiErrorMessage(error, "Error al actualizar los productos");
       set({ error: message, isLoading: false });
       throw new Error(message);
     }

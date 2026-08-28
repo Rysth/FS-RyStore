@@ -92,6 +92,15 @@ try {
 
 const isClosed = settings != null && !settings.published;
 
+const activeCategory = filters.category
+    ? categories.find((c) => c.slug === filters.category)
+    : null;
+const pageTitle = activeCategory
+    ? activeCategory.name
+    : filters.search
+      ? `Resultados para "${filters.search}"`
+      : "Catálogo";
+
 // Combos are the shop's own selection, so they lead the page — but only on the
 // unfiltered catalog. Once the buyer is searching or has picked a category they
 // are looking for something specific, and a combo block would push the results
@@ -105,7 +114,7 @@ const showPromotions =
 ---
 
 <StoreLayout
-    title={isClosed ? "Cerrado temporalmente" : "Catálogo"}
+    title={isClosed ? "Cerrado temporalmente" : pageTitle}
     storeSettings={settings}
     storeCategories={categories}
     closed={isClosed}
@@ -123,6 +132,14 @@ const showPromotions =
                 </p>
             ) : (
                 <>
+                    <h1 class="mb-4 text-xl font-bold sm:text-2xl">
+                        {activeCategory
+                            ? activeCategory.name
+                            : filters.search
+                              ? `Resultados para "${filters.search}"`
+                              : "Catálogo"}
+                    </h1>
+
                     {showPromotions && (
                         <section id="combos" class="mb-7 scroll-mt-20">
                             <div class="mb-3 flex items-baseline justify-between gap-3">

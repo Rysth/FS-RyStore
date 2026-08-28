@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.ts";
 import { productImages, products } from "../db/schema.ts";
@@ -81,6 +81,12 @@ const productSchema = z.object({
 
 const reorderImagesSchema = z.object({
   image_ids: z.array(z.coerce.number().int()).min(1, "es requerido"),
+});
+
+const bulkUpdateSchema = z.object({
+  ids: z.array(z.coerce.number().int()).min(1, "es requerido"),
+  category_id: z.coerce.number().int().nullish(),
+  active: booleanInput.optional(),
 });
 
 export async function registerProductRoutes(app: FastifyInstance): Promise<void> {
@@ -288,6 +294,44 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
     await refreshProductsCount(record.product.categoryId);
 
     return ok(reply, {}, { message: "Producto eliminado correctamente" });
+  });
+
+  app.patch("/api/v1/products/bulk", { preHandler: canWrite }, async (request, reply) => {
+    const values = parseOrFail(bulkUpdateSchema, request.body, reply);
+    if (!values) return reply;
+
+    const affected = await db
+      .select({ id: products.id, categoryId: products.categoryId })
+      .from(products)
+      .where(inArray(products.id, values.ids));
+
+    if (affected.length === 0) {
+      return fail(reply, "Ningún producto encontrado", 404, { error: "not_found" });
+    }
+
+    const oldCategoryIds = new Set(
+      affected.map((p) => p.categoryId).filter((id): id is number => id !== null),
+    );
+
+    const setClause: Record<string, unknown> = { updatedAt: new Date() };
+    if (values.category_id !== undefined) setClause.categoryId = values.category_id;
+    if (values.active !== undefined) setClause.active = values.active;
+
+    await db
+      .update(products)
+      .set(setClause)
+      .where(inArray(products.id, values.ids));
+
+    for (const categoryId of oldCategoryIds) {
+      await refreshProductsCount(categoryId);
+    }
+    if (values.category_id !== undefined && values.category_id !== null) {
+      await refreshProductsCount(values.category_id);
+    }
+
+    return ok(reply, {}, {
+      message: `${affected.length} producto(s) actualizado(s) correctamente`,
+    });
   });
 
   /* ── Media ─────────────────────────────────────────────────────────────── */
