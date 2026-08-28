@@ -26,6 +26,7 @@ services:
       - api
     networks:
       - rystore_network
+      - dokploy-network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.${STACK_NAME:-rystore}-admin.rule=Host(`${ADMIN_SERVER_NAME:-admin.example.com}`)"
@@ -73,9 +74,12 @@ services:
       retries: 5
       start_period: 20s
     restart: unless-stopped
-    # Postgres is provided externally in production; ensure DATABASE_URL points to it.
+    # Postgres is provided externally in production (a Dokploy Database
+    # resource, typically), reachable only over dokploy-network — that is
+    # why this service joins it, not just its own rystore_network.
     networks:
       - rystore_network
+      - dokploy-network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.${STACK_NAME:-rystore}-api.rule=Host(`${API_SERVER_NAME:-api.example.com}`)"
@@ -110,9 +114,11 @@ services:
       api:
         condition: service_healthy
     restart: unless-stopped
-    # Postgres is external in production; ensure env vars point to that service.
+    # Same as api: the database it needs DATABASE_URL to reach lives on
+    # dokploy-network, not the stack's own private network.
     networks:
       - rystore_network
+      - dokploy-network
 
   # The buyer-facing shop. Astro SSR, so every page is rendered per request —
   # that is what puts real Open Graph tags in the HTML WhatsApp reads when the
@@ -145,6 +151,7 @@ services:
     restart: unless-stopped
     networks:
       - rystore_network
+      - dokploy-network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.${STACK_NAME:-rystore}-storefront.rule=Host(`${STOREFRONT_SERVER_NAME:-tienda.example.com}`)"
@@ -155,3 +162,11 @@ services:
 networks:
   rystore_network:
     driver: bridge
+  # Dokploy's own shared network. Every service joins it so Traefik can
+  # route to admin/api/storefront, and so api/worker can reach a database
+  # created as a separate Dokploy resource (a different container, on this
+  # network, not on rystore_network). `external: true` because Dokploy
+  # creates this network itself — it must already exist before this stack
+  # deploys, which on a Dokploy server it always does.
+  dokploy-network:
+    external: true
