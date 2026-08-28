@@ -154,9 +154,17 @@ export default function Catalog({
     syncUrl(next);
   }
 
-  function handlePage(page: number) {
-    load(filters, page);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  function scrollToTop() {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: "auto" });
+      });
+    });
+  }
+
+  async function handlePage(page: number) {
+    await load(filters, page);
+    scrollToTop();
   }
 
   // Published so the header's Filtros badge counts the same things this panel
@@ -224,7 +232,7 @@ export default function Catalog({
 
       <button
         type="button"
-        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        onClick={scrollToTop}
         // Left side, deliberately: the right side is FloatingRail's (WhatsApp,
         // cart), and that stack's height changes with what's configured and
         // what's in the cart. A hand-picked offset "just above" it drifts out
