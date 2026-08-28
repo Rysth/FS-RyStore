@@ -16,11 +16,15 @@ export function setSearchQuery(value: string): void {
   searchQuery.set(value);
 }
 
-/** Whether the sort/price panel is expanded. */
+/** Whether the filters modal is open. */
 export const filtersOpen = atom(false);
 
 export function toggleFilters(): void {
   filtersOpen.set(!filtersOpen.get());
+}
+
+export function closeFilters(): void {
+  filtersOpen.set(false);
 }
 
 /**

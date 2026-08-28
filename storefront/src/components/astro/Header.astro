@@ -137,7 +137,7 @@ const shopName = settings?.name || "RyStore";
 
         {
             catalogMode ? (
-                <HeaderSearch client:load className="mx-4 max-w-md flex-1" />
+                <HeaderSearch client:load showFilters className="mx-4 max-w-md flex-1" />
             ) : (
                 <form action="/" method="get" class="mx-4 min-w-0 max-w-md flex-1">
                     <div class="relative min-w-0 flex-1">

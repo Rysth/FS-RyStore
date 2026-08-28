@@ -2,14 +2,13 @@ import { useEffect, useState } from "react";
 import { useStore } from "@nanostores/react";
 import { totalItems } from "../../lib/cart";
 import { openCart, stickyCtaVisible } from "../../lib/cartUi";
-import { BagIcon, TagIcon, WhatsAppIcon } from "./icons";
+import { BagIcon, WhatsAppIcon } from "./icons";
 
 interface Props {
   whatsappNumber: string;
-  hasPromotions: boolean;
   /**
-   * `Astro.url.pathname` from the server, seeding the first paint so the
-   * Ofertas button doesn't flash on /carrito or /checkout before the
+   * `Astro.url.pathname` from the server, seeding the first paint so the cart
+   * trigger doesn't flash on /carrito or /checkout before the
    * astro:page-load listener below has a chance to correct it. Only the seed:
    * transition:persist keeps this whole component mounted across soft
    * navigations, so it is the listener — not a fresh prop — that tracks the
@@ -20,21 +19,18 @@ interface Props {
 
 /** Routes where the cart trigger is redundant — you're already looking at it. */
 const CART_HIDDEN_ON = ["/carrito", "/checkout"];
-/** The buying flow doesn't need another offer competing for the tap. */
-const OFFERS_HIDDEN_ON = ["/carrito", "/checkout"];
 
 /**
- * The bottom-right stack: combos shortcut, WhatsApp, cart — all on one rail so
- * they never collide. Each one is independently optional (no combos, no
- * WhatsApp number, an empty cart), so the container is a plain flex column
- * with a gap; whichever buttons are present just stack, no hand-placed offsets
- * to keep in sync.
+ * The bottom-right stack: WhatsApp and the cart, on one rail so they never
+ * collide. Each is independently optional (no WhatsApp number configured, an
+ * empty cart), so the container is a plain flex column with a gap; whichever
+ * button is present just stacks, no hand-placed offsets to keep in sync.
  *
  * This owns only the *triggers*. The cart drawer itself is FloatingCart,
  * mounted separately and opened through the shared `cartUi` store — same split
  * the header's CartBadge already used.
  */
-export default function FloatingRail({ whatsappNumber, hasPromotions, pathname: initialPathname }: Props) {
+export default function FloatingRail({ whatsappNumber, pathname: initialPathname }: Props) {
   const count = useStore(totalItems);
   const stickyCta = useStore(stickyCtaVisible);
   const [pathname, setPathname] = useState(initialPathname);
@@ -45,10 +41,9 @@ export default function FloatingRail({ whatsappNumber, hasPromotions, pathname: 
     return () => document.removeEventListener("astro:page-load", onPageLoad);
   }, []);
 
-  const showOffers = hasPromotions && !OFFERS_HIDDEN_ON.includes(pathname);
   const showCart = count > 0 && !CART_HIDDEN_ON.includes(pathname);
 
-  if (!showOffers && !whatsappNumber && !showCart) return null;
+  if (!whatsappNumber && !showCart) return null;
 
   return (
     <div
@@ -59,17 +54,6 @@ export default function FloatingRail({ whatsappNumber, hasPromotions, pathname: 
       }`}
       style={{ bottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
     >
-      {showOffers && (
-        <a
-          href="/#combos"
-          className="flex items-center gap-1.5 rounded-full py-2.5 pl-3 pr-4 text-xs font-semibold text-white shadow-lg ring-1 ring-black/5 transition-transform active:scale-95 sm:hover:scale-105"
-          style={{ backgroundColor: "var(--rystore-primary)" }}
-        >
-          <TagIcon className="size-4" />
-          Ofertas
-        </a>
-      )}
-
       {whatsappNumber && (
         <a
           href={`https://wa.me/${whatsappNumber}`}

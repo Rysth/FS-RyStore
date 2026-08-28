@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "@nanostores/react";
 import type { Pagination, StoreCategory, StoreProduct } from "../../types/store";
-import { fetchProductsFromBrowser, type ProductSort } from "../../lib/api";
+import { fetchProductsFromBrowser } from "../../lib/api";
 import {
   filtersFromQuery,
   type CatalogFilters,
 } from "../../lib/catalogFilters";
 import {
+  closeFilters,
   filtersOpen,
   searchQuery,
   setActiveFilterCount,
 } from "../../lib/catalogUi";
+import FiltersModal from "./FiltersModal";
 import ProductCard from "./ProductCard";
 import { SpinnerIcon } from "./icons";
 
@@ -18,12 +20,6 @@ import { SpinnerIcon } from "./icons";
 // applied, synced to the URL and sent to the API as a set, and threading five
 // arguments through load(), syncUrl() and the popstate handler is how that kind
 // of thing drifts out of step.
-const SORT_LABELS: Record<ProductSort, string> = {
-  recientes: "Más recientes",
-  vendidos: "Más vendidos",
-  precio_asc: "Precio: menor a mayor",
-  precio_desc: "Precio: mayor a menor",
-};
 
 interface Props {
   categories: StoreCategory[];
@@ -187,85 +183,13 @@ export default function Catalog({
 
   return (
     <div className="space-y-5">
-      {isFiltersOpen && (
-        <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 sm:grid-cols-4">
-          <label className="space-y-1 text-sm">
-            <span className="block text-xs text-muted-foreground">Categoría</span>
-            <select
-              value={filters.category}
-              onChange={(event) => update({ category: event.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Todas</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.slug}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span className="block text-xs text-muted-foreground">Ordenar por</span>
-            <select
-              value={filters.sort}
-              onChange={(event) =>
-                update({ sort: event.target.value as ProductSort })
-              }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            >
-              {(Object.keys(SORT_LABELS) as ProductSort[]).map((value) => (
-                <option key={value} value={value}>
-                  {SORT_LABELS[value]}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span className="block text-xs text-muted-foreground">Precio desde</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={filters.minPrice}
-              onChange={(event) => update({ minPrice: event.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span className="block text-xs text-muted-foreground">Precio hasta</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              placeholder="Sin límite"
-              value={filters.maxPrice}
-              onChange={(event) => update({ maxPrice: event.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-
-          {(filters.category ||
-            filters.sort !== "recientes" ||
-            filters.minPrice ||
-            filters.maxPrice) && (
-            <button
-              type="button"
-              onClick={() =>
-                update({ category: "", sort: "recientes", minPrice: "", maxPrice: "" })
-              }
-              className="justify-self-start text-xs underline text-muted-foreground hover:text-foreground sm:col-span-4"
-            >
-              Limpiar filtros
-            </button>
-          )}
-        </div>
-      )}
+      <FiltersModal
+        open={isFiltersOpen}
+        onClose={closeFilters}
+        categories={categories}
+        filters={filters}
+        onChange={update}
+      />
 
       {error && (
         <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -301,10 +225,15 @@ export default function Catalog({
       <button
         type="button"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        // Stacked directly above the cart button and optically centred on it:
-        // 48px at right-5 shares a centre line with the cart's 56px at right-4.
-        style={{ bottom: "calc(5.375rem + env(safe-area-inset-bottom))" }}
-        className={`fixed right-5 z-40 flex size-12 items-center justify-center rounded-full bg-foreground text-background shadow-lg transition-all duration-200 ${
+        // Left side, deliberately: the right side is FloatingRail's (WhatsApp,
+        // cart), and that stack's height changes with what's configured and
+        // what's in the cart. A hand-picked offset "just above" it drifts out
+        // of sync the moment the rail gains or loses a button — which is
+        // exactly what happened here when WhatsApp joined the cart on the
+        // right. The left side has nothing else floating on it, so there is
+        // no stack height to track.
+        style={{ bottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
+        className={`fixed left-4 z-40 flex size-12 items-center justify-center rounded-full bg-foreground text-background shadow-lg transition-all duration-200 ${
           showBackToTop
             ? "translate-y-0 opacity-100"
             : "pointer-events-none translate-y-3 opacity-0"

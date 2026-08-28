@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useStore } from "@nanostores/react";
-import { cartItems, lineKey, totalAmount, totalItems } from "../../lib/cart";
+import { cartItems, clearCart, lineKey, totalAmount, totalItems } from "../../lib/cart";
 import { cartOpen, closeCart } from "../../lib/cartUi";
 import { formatPrice } from "../../lib/format";
 import { useDrawer } from "../../lib/useDrawer";
@@ -58,14 +58,25 @@ export default function FloatingCart() {
           <h2 className="text-base font-semibold">
             Tu carrito {count > 0 && <span className="text-muted-foreground">({count})</span>}
           </h2>
-          <button
-            type="button"
-            onClick={closeCart}
-            className="rounded-full p-2 transition-colors hover:bg-muted"
-            aria-label="Cerrar carrito"
-          >
-            <CloseIcon className="size-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={clearCart}
+                className="rounded-full px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Vaciar carrito
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={closeCart}
+              className="rounded-full p-2 transition-colors hover:bg-muted"
+              aria-label="Cerrar carrito"
+            >
+              <CloseIcon className="size-5" />
+            </button>
+          </div>
         </div>
 
         {items.length === 0 ? (
