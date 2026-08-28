@@ -152,6 +152,14 @@ try {
           <dt class="text-xs text-muted-foreground">Teléfono</dt>
           <dd>{order.phone}</dd>
         </div>
+        {
+          order.email && (
+            <div>
+              <dt class="text-xs text-muted-foreground">Correo</dt>
+              <dd>{order.email}</dd>
+            </div>
+          )
+        }
         <div>
           <dt class="text-xs text-muted-foreground">Entrega</dt>
           <dd>{order.delivery_method_label}</dd>

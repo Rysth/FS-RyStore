@@ -29,6 +29,7 @@ const listQuerySchema = paginationInput.extend({
 const createSchema = z.object({
   customer_name: z.string().optional(),
   phone: z.string().optional(),
+  email: z.string().nullish(),
   address: z.string().nullish(),
   city: z.string().nullish(),
   notes: z.string().nullish(),
@@ -91,6 +92,7 @@ export async function registerOrderRoutes(app: FastifyInstance): Promise<void> {
       customer: {
         customer_name: values.customer_name ?? "",
         phone: values.phone ?? "",
+        email: values.email ?? null,
         address: values.address ?? null,
         city: values.city ?? null,
         notes: values.notes ?? null,

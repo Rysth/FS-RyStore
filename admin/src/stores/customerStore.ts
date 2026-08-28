@@ -5,6 +5,7 @@ import type { Customer, CustomerOrderSummary, Pagination } from "../types/store"
 
 export interface CustomerFormData {
   name?: string;
+  email?: string;
   address?: string;
   city?: string;
   notes?: string;

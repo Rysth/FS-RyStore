@@ -80,7 +80,6 @@ export interface StoreCategory {
   id: number;
   name: string;
   slug: string;
-  featured: boolean;
   image_url: string | null;
 }
 
@@ -158,6 +157,7 @@ export type DeliveryMethod =
 export interface CheckoutCustomer {
   customer_name: string;
   phone: string;
+  email: string;
   address: string;
   city: string;
   notes: string;
@@ -204,6 +204,7 @@ export interface ConfirmedOrder {
   total: string;
   customer_name: string;
   phone: string;
+  email: string | null;
   address: string | null;
   city: string | null;
   notes: string | null;

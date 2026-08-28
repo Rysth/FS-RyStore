@@ -218,6 +218,7 @@ export function serializeOrder(
     number: order.number,
     customer_name: order.customerName,
     phone: order.phone,
+    email: order.email,
     address: order.address,
     city: order.city,
     notes: order.notes,

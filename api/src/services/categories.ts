@@ -97,7 +97,6 @@ export function serializeCategory(category: Category) {
     name: category.name,
     slug: category.slug,
     active: category.active,
-    featured: category.featured,
     position: category.position,
     image_url: assetUrl(category.imageKey),
     products_count: category.productsCount,

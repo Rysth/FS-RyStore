@@ -6,7 +6,6 @@ import type { Category } from "../types/store";
 export interface CategoryFormData {
   name: string;
   active: boolean;
-  featured?: boolean;
 }
 
 /**

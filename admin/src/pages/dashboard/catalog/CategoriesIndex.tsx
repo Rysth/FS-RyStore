@@ -6,7 +6,6 @@ import {
   ImageOff,
   Loader2,
   Plus,
-  Star,
   Tags,
   Trash2,
   Upload,
@@ -109,7 +108,6 @@ function categoriesReducer(
 interface CategoryFormValues {
   name: string;
   active: boolean;
-  featured: boolean;
   image: FileList | null;
 }
 
@@ -142,7 +140,7 @@ export default function CategoriesIndex() {
   const canManage = hasPermission(Permissions.MANAGE_CATALOG);
 
   const form = useForm<CategoryFormValues>({
-    defaultValues: { name: "", active: true, featured: false, image: null },
+    defaultValues: { name: "", active: true, image: null },
   });
 
   const sensors = useSensors(
@@ -168,7 +166,6 @@ export default function CategoriesIndex() {
     form.reset({
       name: state.selected?.name || "",
       active: state.selected ? state.selected.active : true,
-      featured: state.selected ? state.selected.featured : false,
       image: null,
     });
     setPreview(state.selected?.image_url || null);
@@ -206,12 +203,11 @@ export default function CategoriesIndex() {
     const file = values.image && values.image.length > 0 ? values.image[0] : null;
 
     // Only pay the multipart cost when there is actually a file to move.
-    let payload: FormData | { name: string; active: boolean; featured: boolean };
+    let payload: FormData | { name: string; active: boolean };
     if (file || removeImage) {
       const formData = new FormData();
       formData.append("category[name]", values.name.trim());
       formData.append("category[active]", String(values.active));
-      formData.append("category[featured]", String(values.featured));
       if (file) formData.append("image", file);
       if (removeImage) formData.append("remove_image", "true");
       payload = formData;
@@ -219,7 +215,6 @@ export default function CategoriesIndex() {
       payload = {
         name: values.name.trim(),
         active: values.active,
-        featured: values.featured,
       };
     }
 
@@ -246,18 +241,6 @@ export default function CategoriesIndex() {
       setConfirmName("");
     } catch (error) {
       toast.error(errorMessage(error, "Error al eliminar la categoría"));
-    }
-  };
-
-  const handleToggleFeatured = async (category: Category) => {
-    try {
-      await updateCategory(category.id, {
-        name: category.name,
-        active: category.active,
-        featured: !category.featured,
-      });
-    } catch (error) {
-      toast.error(errorMessage(error, "Error al actualizar la categoría"));
     }
   };
 
@@ -365,7 +348,6 @@ export default function CategoriesIndex() {
                           setConfirmName("");
                           dispatch({ type: "OPEN_DELETE", payload: category });
                         }}
-                        onToggleFeatured={() => handleToggleFeatured(category)}
                       />
                     ))}
                   </SortableContext>
@@ -502,15 +484,6 @@ export default function CategoriesIndex() {
               Visible en la tienda
             </label>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="size-4 rounded border-input"
-                {...form.register("featured")}
-              />
-              Destacada en las burbujas del catálogo
-            </label>
-
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 type="button"
@@ -580,7 +553,6 @@ interface SortableRowProps {
   isReordering: boolean;
   onEdit: () => void;
   onDelete: () => void;
-  onToggleFeatured: () => void;
 }
 
 function SortableCategoryRow({
@@ -589,7 +561,6 @@ function SortableCategoryRow({
   isReordering,
   onEdit,
   onDelete,
-  onToggleFeatured,
 }: SortableRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: category.id, disabled: !canManage });
@@ -645,34 +616,12 @@ function SortableCategoryRow({
           <Badge variant={category.active ? "default" : "secondary"}>
             {category.active ? "Activa" : "Oculta"}
           </Badge>
-          {category.featured && (
-            <Badge variant="outline" className="gap-1">
-              <Star className="size-3 fill-current" />
-              Destacada
-            </Badge>
-          )}
         </div>
       </TableCell>
 
       {canManage && (
         <TableCell className="text-right">
           <div className="flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={onToggleFeatured}
-              aria-label={
-                category.featured
-                  ? `Quitar ${category.name} de destacadas`
-                  : `Destacar ${category.name}`
-              }
-              title={category.featured ? "Quitar de destacadas" : "Destacar"}
-            >
-              <Star
-                className={`size-4 ${category.featured ? "fill-current text-amber-500" : "text-muted-foreground"}`}
-              />
-            </Button>
             <Button variant="outline" size="sm" onClick={onEdit}>
               Editar
             </Button>

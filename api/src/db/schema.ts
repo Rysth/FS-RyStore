@@ -286,7 +286,6 @@ export const categories = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     active: boolean("active").notNull().default(true),
-    featured: boolean("featured").notNull().default(false),
     position: integer("position").notNull().default(0),
     // Denormalised count, kept in sync when products are created, moved or
     // deleted. Rails maintained it with counter_cache.
@@ -490,6 +489,7 @@ export const customers = pgTable(
     id: bigserial("id", { mode: "number" }).primaryKey(),
     name: text("name"),
     phone: text("phone").notNull(),
+    email: text("email"),
     address: text("address"),
     city: text("city"),
     notes: text("notes"),
@@ -512,6 +512,10 @@ export const orders = pgTable(
     number: text("number"),
     customerName: text("customer_name").notNull(),
     phone: text("phone").notNull(),
+    // Required by the storefront checkout (see routes/public.ts), nullable
+    // here because the admin's own order form does not force it and older
+    // rows predate the column entirely.
+    email: text("email"),
     address: text("address"),
     city: text("city"),
     notes: text("notes"),

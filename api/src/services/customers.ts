@@ -17,12 +17,18 @@ export function normalizePhone(phone: string | null | undefined): string {
 }
 
 /**
- * Finds the customer by phone or creates them, refreshing name/address/city
+ * Finds the customer by phone or creates them, refreshing name/email/address/city
  * only when the checkout actually supplied them — a buyer who leaves the
  * address blank on a pickup order must not wipe the one on file.
  */
 export async function findOrCreateForOrder(
-  input: { name?: string | null; phone: string; address?: string | null; city?: string | null },
+  input: {
+    name?: string | null;
+    phone: string;
+    email?: string | null;
+    address?: string | null;
+    city?: string | null;
+  },
   executor: Executor = db,
 ): Promise<Customer | null> {
   const phone = normalizePhone(input.phone);
@@ -36,6 +42,7 @@ export async function findOrCreateForOrder(
 
   const patch = {
     ...(input.name?.trim() ? { name: input.name.trim() } : {}),
+    ...(input.email?.trim() ? { email: input.email.trim() } : {}),
     ...(input.address?.trim() ? { address: input.address.trim() } : {}),
     ...(input.city?.trim() ? { city: input.city.trim() } : {}),
   };

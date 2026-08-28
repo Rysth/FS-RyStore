@@ -26,6 +26,7 @@ import {
 interface OrderFormValues {
   customer_name: string;
   phone: string;
+  email: string;
   city: string;
   address: string;
   notes: string;
@@ -42,6 +43,7 @@ interface Line {
 const EMPTY_VALUES: OrderFormValues = {
   customer_name: "",
   phone: "",
+  email: "",
   city: "",
   address: "",
   notes: "",
@@ -164,6 +166,7 @@ export default function OrderForm() {
         order: {
           customer_name: values.customer_name.trim(),
           phone: values.phone.trim(),
+          email: values.email.trim() || undefined,
           city: values.city.trim() || undefined,
           address: values.address.trim() || undefined,
           notes: values.notes.trim() || undefined,
@@ -267,6 +270,26 @@ export default function OrderForm() {
                 </p>
               )}
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="order-email">Correo electrónico</Label>
+            <Input
+              id="order-email"
+              type="email"
+              placeholder="cliente@correo.com"
+              {...form.register("email", {
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: "Ingresa un correo válido",
+                },
+              })}
+            />
+            {form.formState.errors.email && (
+              <p className="text-xs text-destructive">
+                {form.formState.errors.email.message}
+              </p>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

@@ -105,6 +105,16 @@ describe("pedidos", () => {
     assert.equal(order.status, "pendiente");
   });
 
+  it("el correo es opcional y, si viene, se guarda", async () => {
+    const withEmail = await placeOrder({ order: { email: "tienda-cliente@example.com" } });
+    assert.equal(withEmail.statusCode, 201, withEmail.body);
+    assert.equal(withEmail.json().order.email, "tienda-cliente@example.com");
+
+    const withoutEmail = await placeOrder();
+    assert.equal(withoutEmail.statusCode, 201, "un pedido de mostrador no exige correo");
+    assert.equal(withoutEmail.json().order.email, null);
+  });
+
   it("nunca expone public_token", async () => {
     const created = await placeOrder();
     assert.equal(created.statusCode, 201);
@@ -251,11 +261,18 @@ describe("contactos", () => {
     assert.equal(contact.phone, "593990000777");
 
     const updated = await request("PUT", `/api/v1/customers/${contact.id}`, {
-      customer: { phone: "0000000000", city: "Cuenca" },
+      customer: { phone: "0000000000", city: "Cuenca", email: "lead@example.com" },
     });
     assert.equal(updated.statusCode, 200);
     assert.equal(updated.json().customer.phone, "593990000777", "el teléfono es inmutable");
     assert.equal(updated.json().customer.city, "Cuenca");
+    assert.equal(updated.json().customer.email, "lead@example.com");
+
+    const badEmail = await request("PUT", `/api/v1/customers/${contact.id}`, {
+      customer: { email: "no-es-un-correo" },
+    });
+    assert.equal(badEmail.statusCode, 422);
+    assert.deepEqual(badEmail.json().errors, ["El correo electrónico no tiene un formato válido"]);
 
     await db.delete(customers).where(eq(customers.id, contact.id));
   });

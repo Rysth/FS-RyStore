@@ -24,8 +24,10 @@ import { SpinnerIcon } from "./icons";
 interface FieldErrors {
   customer_name?: string;
   phone?: string;
+  email?: string;
   address?: string;
   city?: string;
+  terms?: string;
 }
 
 const DELIVERY_OPTIONS: {
@@ -52,9 +54,11 @@ export default function CheckoutForm() {
 
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
+  const [acceptsTerms, setAcceptsTerms] = useState(false);
   const [checkoutFaxConfirmation, setCheckoutFaxConfirmation] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(
     DELIVERY_METHODS.DOMICILIO,
@@ -117,6 +121,7 @@ export default function CheckoutForm() {
 
     if (text.includes("nombre") || text.includes("customer_name")) return "customer_name";
     if (text.includes("teléfono") || text.includes("telefono") || text.includes("phone")) return "phone";
+    if (text.includes("correo") || text.includes("email")) return "email";
     if (text.includes("dirección") || text.includes("direccion") || text.includes("address")) return "address";
     if (text.includes("ciudad") || text.includes("city")) return "city";
 
@@ -133,11 +138,15 @@ export default function CheckoutForm() {
     try {
       const preview = await validateCoupon(
         code,
-        items.map((item) => ({
-          product_id: item.product_id,
-          variant_id: item.variant_id,
-          quantity: item.quantity,
-        })),
+        items.map((item) =>
+          item.promotion_id
+            ? { promotion_id: item.promotion_id, quantity: item.quantity }
+            : {
+                product_id: item.product_id,
+                variant_id: item.variant_id,
+                quantity: item.quantity,
+              },
+        ),
       );
       setAppliedCoupon(preview);
     } catch (caught) {
@@ -164,8 +173,16 @@ export default function CheckoutForm() {
     } else if (!/^\+?[\d\s-]{7,20}$/.test(phone.trim())) {
       errors.phone = "Ingresa un teléfono válido";
     }
+    if (!email.trim()) {
+      errors.email = "Ingresa tu correo electrónico";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errors.email = "Ingresa un correo válido";
+    }
     if (needsAddress && !address.trim()) {
       errors.address = "La dirección es requerida para envíos a domicilio";
+    }
+    if (!acceptsTerms) {
+      errors.terms = "Debes aceptar los Términos y la Política de Privacidad";
     }
 
     setFieldErrors(errors);
@@ -192,6 +209,7 @@ export default function CheckoutForm() {
         {
           customer_name: customerName.trim(),
           phone: phone.trim(),
+          email: email.trim(),
           address: serviceOnly ? "" : address.trim(),
           city: serviceOnly ? "" : city.trim(),
           notes: notes.trim(),
@@ -289,6 +307,16 @@ export default function CheckoutForm() {
             type="tel"
             autoComplete="tel"
             placeholder="0987654321"
+          />
+          <Field
+            id="email"
+            label="Correo electrónico"
+            value={email}
+            onChange={setEmail}
+            error={fieldErrors.email}
+            type="email"
+            autoComplete="email"
+            placeholder="tucorreo@ejemplo.com"
           />
           {!serviceOnly && (
             <>
@@ -468,6 +496,40 @@ export default function CheckoutForm() {
             <span>Total</span>
             <span>{formatPrice(appliedCoupon ? appliedCoupon.total : amount)}</span>
           </div>
+        </div>
+
+        <div>
+          <label className="flex items-start gap-2 text-xs text-muted-foreground">
+            <input
+              id="terms"
+              type="checkbox"
+              checked={acceptsTerms}
+              onChange={(event) => {
+                setAcceptsTerms(event.target.checked);
+                if (event.target.checked) {
+                  setFieldErrors((current) => ({ ...current, terms: undefined }));
+                }
+              }}
+              aria-invalid={Boolean(fieldErrors.terms)}
+              className="mt-0.5 size-4 shrink-0 rounded border-border"
+            />
+            <span>
+              He leído y acepto los{" "}
+              <a
+                href="/terminos-y-privacidad"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-foreground"
+              >
+                Términos y Condiciones y la Política de Privacidad
+              </a>
+              , incluido el tratamiento de mis datos personales conforme a la
+              Ley Orgánica de Protección de Datos Personales del Ecuador.
+            </span>
+          </label>
+          {fieldErrors.terms && (
+            <p className="mt-1 text-xs text-destructive">{fieldErrors.terms}</p>
+          )}
         </div>
 
         {error && (

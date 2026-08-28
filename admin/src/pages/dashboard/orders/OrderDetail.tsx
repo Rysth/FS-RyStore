@@ -11,6 +11,7 @@ import {
   ImageOff,
   Landmark,
   Loader2,
+  Mail,
   MapPin,
   MessageCircle,
   Package,
@@ -528,6 +529,21 @@ function CustomerCard({
             </a>
           </div>
         </div>
+
+        {order.email && (
+          <InfoRow
+            icon={Mail}
+            label="Correo"
+            value={
+              <a
+                href={`mailto:${order.email}`}
+                className="hover:underline"
+              >
+                {order.email}
+              </a>
+            }
+          />
+        )}
 
         {fullAddress && (
           <InfoRow

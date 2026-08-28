@@ -1,0 +1,187 @@
+---
+import StoreLayout from "../layouts/StoreLayout.astro";
+import { fetchSettings } from "../lib/api";
+import type { StoreSettings } from "../types/store";
+
+let settings: StoreSettings | null = null;
+try {
+  settings = (await fetchSettings()).store;
+} catch {
+  // The page still renders with the generic wording below if settings can't
+  // be reached — a buyer reading the terms should not hit a dead end.
+}
+
+const shopName = settings?.name || "la tienda";
+const whatsappNumber = (settings?.whatsapp || "").replace(/\D/g, "");
+const today = new Date();
+const lastUpdated = today.toLocaleDateString("es-EC", { year: "numeric", month: "long" });
+---
+
+<StoreLayout
+  title="Términos y Política de Privacidad"
+  description={`Términos y condiciones y política de tratamiento de datos personales de ${shopName}.`}
+  noindex
+>
+  <div class="mx-auto w-full max-w-3xl space-y-10 px-4 py-8">
+    <header>
+      <h1 class="text-2xl font-bold">Términos y Política de Privacidad</h1>
+      <p class="mt-1 text-sm text-muted-foreground">Última actualización: {lastUpdated}</p>
+    </header>
+
+    <section class="space-y-4">
+      <h2 class="text-lg font-bold">Términos y Condiciones</h2>
+
+      <div class="space-y-3 text-sm leading-relaxed text-muted-foreground">
+        <p>
+          Estos términos regulan la compra de productos y servicios publicados en
+          el catálogo en línea de <strong class="text-foreground">{shopName}</strong>,
+          cuyos pedidos se coordinan a través de WhatsApp.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Pedidos y precios.</strong> Los precios
+          publicados están expresados en dólares de los Estados Unidos de América
+          (USD) y pueden cambiar sin previo aviso. Un pedido queda registrado en
+          el momento en que se envía desde el sitio, incluso si el mensaje de
+          WhatsApp no llega a enviarse. El precio y la disponibilidad final se
+          confirman por WhatsApp antes de despachar el pedido.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Pago.</strong> Se acepta pago en
+          efectivo contra entrega o transferencia bancaria. Para pedidos por
+          transferencia, el comprador debe subir el comprobante desde su página
+          de confirmación; {shopName} verifica el pago antes de despachar.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Entrega.</strong> El comprador elige
+          entre envío a domicilio o retiro en el local. El costo y tiempo de
+          envío se coordinan por WhatsApp según la ubicación y el servicio de
+          entrega disponible.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Cancelaciones.</strong> Un pedido
+          pendiente de pago por transferencia, sin comprobante subido, puede
+          cancelarse directamente desde su página de confirmación. Cualquier
+          otra cancelación se coordina por WhatsApp con {shopName}.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Disponibilidad.</strong> La
+          publicación de un producto en el catálogo no garantiza stock
+          disponible al momento de confirmar el pedido; en ese caso, {shopName} lo
+          informará y ofrecerá alternativas o el reembolso que corresponda.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Cupones y combos.</strong> Los
+          descuentos y combos están sujetos a las condiciones vigentes al
+          momento del pedido y no son acumulables entre sí salvo que se indique
+          lo contrario.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Legislación aplicable.</strong> Estos
+          términos se rigen por las leyes de la República del Ecuador,
+          incluyendo la Ley Orgánica de Defensa del Consumidor.
+        </p>
+      </div>
+    </section>
+
+    <section class="space-y-4 border-t border-border/60 pt-8">
+      <h2 class="text-lg font-bold">Política de Privacidad y Tratamiento de Datos Personales</h2>
+
+      <div class="space-y-3 text-sm leading-relaxed text-muted-foreground">
+        <p>
+          {shopName} trata los datos personales de sus clientes de acuerdo con
+          la <strong class="text-foreground">
+            Ley Orgánica de Protección de Datos Personales del Ecuador
+          </strong> (Registro Oficial Suplemento 459, del 26 de mayo de 2021) y
+          su normativa reglamentaria.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Responsable del tratamiento.</strong>{" "}
+          {shopName} es responsable de los datos personales recopilados a
+          través de este sitio.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Datos que recopilamos.</strong> Al
+          realizar un pedido solicitamos tu nombre, teléfono, correo
+          electrónico y, si corresponde a la forma de entrega elegida, tu
+          dirección. También registramos el historial de tus pedidos.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Finalidad.</strong> Usamos estos
+          datos únicamente para procesar y dar seguimiento a tus pedidos,
+          contactarte por WhatsApp o correo electrónico sobre su estado, y
+          cumplir obligaciones legales y tributarias. No utilizamos tus datos
+          para fines distintos a estos sin tu consentimiento expreso.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Base legal.</strong> El tratamiento
+          se basa en tu consentimiento, otorgado al aceptar esta política antes
+          de finalizar un pedido, y en la ejecución de la relación comercial
+          entre tú y {shopName}.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Con quién compartimos tus datos.</strong>{" "}
+          No vendemos ni cedemos tus datos personales a terceros. Solo se
+          comparten cuando es estrictamente necesario para completar tu
+          pedido (por ejemplo, con un servicio de entrega) o cuando lo exige
+          una autoridad competente.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Conservación.</strong> Conservamos
+          tus datos mientras exista una relación comercial contigo y, después,
+          por el plazo que exige la normativa tributaria y contable
+          ecuatoriana.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Tus derechos.</strong> Puedes
+          solicitar en cualquier momento el acceso, actualización,
+          rectificación, eliminación, oposición o portabilidad de tus datos
+          personales, {
+            whatsappNumber ? (
+              <>
+                escribiéndonos por{" "}
+                <a
+                  href={`https://wa.me/${whatsappNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="font-medium text-foreground underline"
+                >
+                  WhatsApp
+                </a>
+                .
+              </>
+            ) : (
+              "contactando directamente a la tienda."
+            )
+          }
+        </p>
+
+        <p>
+          <strong class="text-foreground">Seguridad.</strong> Aplicamos
+          medidas técnicas razonables para proteger tus datos personales
+          frente a accesos no autorizados, pérdida o alteración.
+        </p>
+
+        <p>
+          <strong class="text-foreground">Cambios a esta política.</strong> Podemos
+          actualizar este documento para reflejar cambios legales u
+          operativos. La fecha de la última actualización aparece al inicio
+          de esta página.
+        </p>
+      </div>
+    </section>
+  </div>
+</StoreLayout>

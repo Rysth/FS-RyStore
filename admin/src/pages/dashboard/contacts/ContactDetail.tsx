@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
-import { Loader2, MapPin, Phone, Receipt, StickyNote } from "lucide-react";
+import { Loader2, Mail, MapPin, Phone, Receipt, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import { errorMessage } from "../../../utils/apiError";
 
 interface ContactFormValues {
   name: string;
+  email: string;
   address: string;
   city: string;
   notes: string;
@@ -51,7 +52,7 @@ export default function ContactDetail() {
   const canManage = hasPermission(Permissions.MANAGE_CONTACTS);
 
   const form = useForm<ContactFormValues>({
-    defaultValues: { name: "", address: "", city: "", notes: "" },
+    defaultValues: { name: "", email: "", address: "", city: "", notes: "" },
   });
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function ContactDetail() {
     if (!customer) return;
     form.reset({
       name: customer.name || "",
+      email: customer.email || "",
       address: customer.address || "",
       city: customer.city || "",
       notes: customer.notes || "",
@@ -198,6 +200,31 @@ export default function ContactDetail() {
                     disabled={!canManage}
                     {...form.register("name", { maxLength: 120 })}
                   />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="contact-email">
+                    <span className="flex items-center gap-1.5">
+                      <Mail className="size-3.5" />
+                      Correo electrónico
+                    </span>
+                  </Label>
+                  <Input
+                    id="contact-email"
+                    type="email"
+                    disabled={!canManage}
+                    {...form.register("email", {
+                      pattern: {
+                        value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                        message: "Ingresa un correo válido",
+                      },
+                    })}
+                  />
+                  {form.formState.errors.email && (
+                    <p className="text-xs text-destructive">
+                      {form.formState.errors.email.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">

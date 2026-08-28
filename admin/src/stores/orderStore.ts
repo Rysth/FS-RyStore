@@ -44,6 +44,7 @@ export interface NewOrderPayload {
   order: {
     customer_name: string;
     phone: string;
+    email?: string;
     address?: string;
     city?: string;
     notes?: string;

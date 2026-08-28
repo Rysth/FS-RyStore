@@ -264,12 +264,12 @@ type ProductDef = {
   variants?: VariantDef[];
 };
 
-const SHOWCASE_CATEGORIES: Array<{ name: string; slug: string; position: number; featured?: boolean }> = [
-  { name: "Ropa", slug: "ropa", position: 2, featured: true },
-  { name: "Calzado", slug: "calzado", position: 3, featured: true },
+const SHOWCASE_CATEGORIES: Array<{ name: string; slug: string; position: number }> = [
+  { name: "Ropa", slug: "ropa", position: 2 },
+  { name: "Calzado", slug: "calzado", position: 3 },
   { name: "Accesorios", slug: "accesorios", position: 4 },
   { name: "Hogar y Cocina", slug: "hogar-cocina", position: 5 },
-  { name: "Tecnología", slug: "tecnologia", position: 6, featured: true },
+  { name: "Tecnología", slug: "tecnologia", position: 6 },
   { name: "Belleza y Cuidado", slug: "belleza-cuidado", position: 7 },
   { name: "Bebidas y Snacks", slug: "bebidas-snacks", position: 8 },
   { name: "Servicios", slug: "servicios", position: 9 },
@@ -687,10 +687,10 @@ async function upsertShowcaseCategories(): Promise<Map<string, number>> {
   for (const category of SHOWCASE_CATEGORIES) {
     const [row] = await db
       .insert(categories)
-      .values({ name: category.name, slug: category.slug, position: category.position, featured: category.featured ?? false })
+      .values({ name: category.name, slug: category.slug, position: category.position })
       .onConflictDoUpdate({
         target: categories.slug,
-        set: { name: category.name, position: category.position, featured: category.featured ?? false, active: true },
+        set: { name: category.name, position: category.position, active: true },
       })
       .returning();
     ids.set(category.slug, row!.id);

@@ -435,8 +435,8 @@ describe("previewSubtotal", () => {
     assert.equal(fromCents(subtotal), "54.00");
   });
 
-  it("ignora los combos", async () => {
+  it("incluye los combos en el subtotal", async () => {
     const subtotal = await previewSubtotal([{ promotion_id: comboId, quantity: 1 }]);
-    assert.equal(fromCents(subtotal), "0.00");
+    assert.equal(fromCents(subtotal), "12.00");
   });
 });

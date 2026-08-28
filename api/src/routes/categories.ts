@@ -38,7 +38,6 @@ const IMAGE_ERRORS = {
 const categorySchema = z.object({
   name: z.string().trim().min(1, "es requerido").max(MAX_NAME_LENGTH, `no puede tener más de ${MAX_NAME_LENGTH} caracteres`).optional(),
   active: booleanInput.optional(),
-  featured: booleanInput.optional(),
   position: z.coerce.number().int().min(0).optional(),
 });
 
@@ -96,7 +95,6 @@ export async function registerCategoryRoutes(app: FastifyInstance): Promise<void
         name: values.name,
         slug: await slugForCategory(values.name),
         active: values.active ?? true,
-        featured: values.featured ?? false,
         position: values.position && values.position > 0 ? values.position : await nextPosition(),
       })
       .returning();
@@ -134,7 +132,6 @@ export async function registerCategoryRoutes(app: FastifyInstance): Promise<void
           .set({
             ...(values.name ? { name: values.name, slug: await slugForCategory(values.name, category.id) } : {}),
             ...(values.active !== undefined ? { active: values.active } : {}),
-            ...(values.featured !== undefined ? { featured: values.featured } : {}),
             ...(values.position !== undefined ? { position: values.position } : {}),
             updatedAt: new Date(),
           })

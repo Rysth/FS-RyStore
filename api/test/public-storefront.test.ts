@@ -203,6 +203,7 @@ describe("checkout", () => {
       order: {
         customer_name: `${PREFIX} Comprador`,
         phone: "0991112223",
+        email: "comprador@example.com",
         address: "Calle Falsa 123",
         city: "Guayaquil",
         payment_method: "transferencia",
@@ -232,6 +233,39 @@ describe("checkout", () => {
     assert.ok(body.order.token, "el comprador necesita su token");
     assert.equal(body.order.payment_proof_required, true);
     assert.match(body.whatsapp_message, /Nuevo pedido RY-\d{5}/);
+  });
+
+  it("exige un correo electrónico", async () => {
+    const response = await checkout({
+      order: { email: "" },
+      items: [{ product_id: ladderId, quantity: 1 }],
+    });
+
+    assert.equal(response.statusCode, 422);
+    assert.equal(response.json().message, "El correo electrónico es requerido");
+  });
+
+  it("rechaza un correo con formato inválido", async () => {
+    const response = await checkout({
+      order: { email: "no-es-un-correo" },
+      items: [{ product_id: ladderId, quantity: 1 }],
+    });
+
+    assert.equal(response.statusCode, 422);
+    assert.ok(
+      response.json().errors.includes("El correo electrónico no tiene un formato válido"),
+    );
+  });
+
+  it("guarda el correo y lo devuelve en la confirmación", async () => {
+    const created = await checkout({
+      order: { email: "buyer+test@example.com" },
+      items: [{ product_id: ladderId, quantity: 1 }],
+    });
+    assert.equal(created.statusCode, 201, created.body);
+
+    const confirmation = await get(`/api/v1/public/orders/${created.json().order.token}`);
+    assert.equal(confirmation.json().order.email, "buyer+test@example.com");
   });
 
   it("un honeypot lleno responde con el mensaje genérico", async () => {
@@ -296,6 +330,7 @@ describe("tienda despublicada", () => {
       order: {
         customer_name: `${PREFIX} Antes`,
         phone: "0994445556",
+        email: "antes@example.com",
         address: "Calle Falsa 123",
         payment_method: "transferencia",
         delivery_method: "domicilio",

@@ -68,6 +68,7 @@ const catalogQuerySchema = paginationInput.extend({
 const checkoutSchema = z.object({
   customer_name: z.string().optional(),
   phone: z.string().optional(),
+  email: z.string().optional(),
   address: z.string().nullish(),
   city: z.string().nullish(),
   notes: z.string().nullish(),
@@ -230,10 +231,20 @@ function registerOrderRoutes(app: FastifyInstance): void {
         return fail(reply, "No se pudo registrar el pedido", 422);
       }
 
+      // Required here, not in order-creator's shared validateCustomer: the
+      // admin's own manual order entry goes through the same service and does
+      // not force an email. Format (if the buyer typed something odd) is still
+      // checked there, alongside the rest of the customer fields.
+      if (!values.email?.trim()) {
+        const message = "El correo electrónico es requerido";
+        return fail(reply, message, 422, { errors: [message] });
+      }
+
       const result = await createOrder({
         customer: {
           customer_name: values.customer_name ?? "",
           phone: values.phone ?? "",
+          email: values.email,
           address: values.address ?? null,
           city: values.city ?? null,
           notes: values.notes ?? null,
@@ -425,6 +436,7 @@ function serializePublicOrder(detail: PublicOrderDetail) {
     total: order.total,
     customer_name: order.customerName,
     phone: order.phone,
+    email: order.email,
     address: order.address,
     city: order.city,
     notes: order.notes,

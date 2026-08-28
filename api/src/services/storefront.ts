@@ -72,7 +72,6 @@ export async function publicCategories() {
     id: category.id,
     name: category.name,
     slug: category.slug,
-    featured: category.featured,
     image_url: assetUrl(category.imageKey),
   }));
 }

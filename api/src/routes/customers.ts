@@ -37,15 +37,23 @@ const listQuerySchema = paginationInput.extend({
 const customerSchema = z.object({
   name: z.string().nullish(),
   phone: z.string().optional(),
+  email: z.string().nullish(),
   address: z.string().nullish(),
   city: z.string().nullish(),
   notes: z.string().nullish(),
 });
 
-function validateCustomer(attributes: { name?: string | null; notes?: string | null }): string[] {
+function validateCustomer(attributes: {
+  name?: string | null;
+  email?: string | null;
+  notes?: string | null;
+}): string[] {
   const errors: string[] = [];
   if (attributes.name && attributes.name.length > MAX_NAME_LENGTH) {
     errors.push(`El nombre no puede tener más de ${MAX_NAME_LENGTH} caracteres`);
+  }
+  if (attributes.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(attributes.email.trim())) {
+    errors.push("El correo electrónico no tiene un formato válido");
   }
   if (attributes.notes && attributes.notes.length > MAX_NOTES_LENGTH) {
     errors.push(`Las notas no pueden tener más de ${MAX_NOTES_LENGTH} caracteres`);
@@ -58,6 +66,7 @@ export function serializeCustomer(customer: Customer) {
     id: customer.id,
     name: customer.name,
     phone: customer.phone,
+    email: customer.email,
     address: customer.address,
     city: customer.city,
     notes: customer.notes,
@@ -155,6 +164,7 @@ export async function registerCustomerRoutes(app: FastifyInstance): Promise<void
       .values({
         name: values.name ?? null,
         phone,
+        email: values.email ?? null,
         address: values.address ?? null,
         city: values.city ?? null,
         notes: values.notes ?? null,
@@ -191,6 +201,7 @@ export async function registerCustomerRoutes(app: FastifyInstance): Promise<void
           .update(customers)
           .set({
             ...(values.name !== undefined ? { name: values.name } : {}),
+            ...(values.email !== undefined ? { email: values.email } : {}),
             ...(values.address !== undefined ? { address: values.address } : {}),
             ...(values.city !== undefined ? { city: values.city } : {}),
             ...(values.notes !== undefined ? { notes: values.notes } : {}),

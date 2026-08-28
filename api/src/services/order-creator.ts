@@ -55,6 +55,10 @@ export type CheckoutItem = {
 export type CheckoutCustomer = {
   customer_name: string;
   phone: string;
+  // Required by the storefront checkout, optional for the admin's own order
+  // form — see validateCustomer, which only checks its format here. Presence
+  // is a route-level policy, not a service-level one.
+  email?: string | null;
   address?: string | null;
   city?: string | null;
   notes?: string | null;
@@ -422,6 +426,13 @@ function validateCustomer(customer: CheckoutCustomer): string[] {
     errors.push("El teléfono no tiene un formato válido");
   }
 
+  // Presence is enforced by the caller (the public checkout requires it, the
+  // admin's manual order entry does not) — this only guards the shape, the
+  // same split phone/address already use.
+  if (customer.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email.trim())) {
+    errors.push("El correo electrónico no tiene un formato válido");
+  }
+
   if (!["efectivo", "transferencia"].includes(customer.payment_method)) {
     errors.push("El método de pago no es válido");
   }
@@ -443,19 +454,25 @@ function validateCustomer(customer: CheckoutCustomer): string[] {
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /**
- * Subtotal preview for POST /public/coupons/validate. Deliberately ignores
- * combos, stock and the services rule — it only needs to price what is priced.
+ * Subtotal preview for POST /public/coupons/validate. Prices both standalone
+ * products and combos so a cart full of promotions still shows the right
+ * discount. Deliberately ignores stock and the services rule — it only needs
+ * to price what is priced.
  */
 export async function previewSubtotal(items: CheckoutItem[]): Promise<Cents> {
   const lines = normalizeItems(items);
-  if (lines.length === 0) return ZERO;
+  const combos = normalizePromotions(items);
 
-  const loaded = await loadProducts([...new Set(lines.map((line) => line.productId))]);
+  const [loadedProducts, loadedCombos] = await Promise.all([
+    loadProducts([...new Set(lines.map((line) => line.productId))]),
+    loadCombos([...combos.keys()]),
+  ]);
+
   const ladder = tierQuantities(lines);
 
   let subtotal: Cents = ZERO;
   for (const line of lines) {
-    const product = loaded.get(line.productId);
+    const product = loadedProducts.get(line.productId);
     if (!product) continue;
 
     const variant = findVariant(product, line.variantId);
@@ -464,6 +481,12 @@ export async function previewSubtotal(items: CheckoutItem[]): Promise<Cents> {
       : unitPriceForProduct(product, product.tiers, ladder.get(product.id) ?? line.quantity);
 
     subtotal = addCents(subtotal, multiplyCents(unitPrice, line.quantity));
+  }
+
+  for (const [promotionId, quantity] of combos) {
+    const combo = loadedCombos.get(promotionId);
+    if (!combo) continue;
+    subtotal = addCents(subtotal, multiplyCents(toCents(combo.price), quantity));
   }
 
   return subtotal;
@@ -582,6 +605,7 @@ export async function createOrder(input: {
         {
           name: input.customer.customer_name,
           phone: input.customer.phone,
+          email: input.customer.email,
           address: input.customer.address,
           city: input.customer.city,
         },
@@ -593,6 +617,7 @@ export async function createOrder(input: {
         .values({
           customerName: input.customer.customer_name.trim(),
           phone: normalizePhone(input.customer.phone),
+          email: input.customer.email?.trim() || null,
           address: input.customer.address?.trim() || null,
           city: input.customer.city?.trim() || null,
           notes: input.customer.notes?.trim() || null,

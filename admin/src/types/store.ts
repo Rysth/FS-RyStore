@@ -5,7 +5,6 @@ export interface Category {
   name: string;
   slug: string;
   active: boolean;
-  featured: boolean;
   position: number;
   image_url: string | null;
   products_count?: number;
@@ -171,6 +170,7 @@ export interface Order {
   number: string;
   customer_name: string;
   phone: string;
+  email: string | null;
   address: string | null;
   city: string | null;
   notes: string | null;
@@ -217,6 +217,7 @@ export interface Customer {
   id: number;
   name: string | null;
   phone: string;
+  email: string | null;
   address: string | null;
   city: string | null;
   notes: string | null;
