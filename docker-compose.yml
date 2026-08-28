@@ -6,8 +6,11 @@ services:
         VITE_API_URL: ${VITE_API_URL}
         VITE_STOREFRONT_URL: ${STOREFRONT_URL:-https://tienda.example.com}
     container_name: ${STACK_NAME:-rystore}-admin
-    ports:
-      - "5173:5173"
+    # No host port published on purpose: Traefik reaches this container over
+    # the docker network directly, using the label below. On a VPS shared
+    # with other client stacks (§9 of AGENTS.md), a fixed host port is a
+    # collision waiting to happen — every deployment built from this same
+    # template would otherwise fight over the same 5173.
     volumes:
       - ./admin:/app
       - /app/node_modules
@@ -35,8 +38,8 @@ services:
       context: ./api
       target: production
     container_name: ${STACK_NAME:-rystore}-api
-    ports:
-      - "${PORT}:3000"
+    # Same reasoning as admin: no host port. PORT below is only the port the
+    # Fastify process binds to *inside* the container.
     environment:
       - NODE_ENV=production
       - PORT=3000
