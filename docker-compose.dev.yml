@@ -10,6 +10,7 @@ services:
       - ./admin:/app
       - /app/node_modules
     environment:
+      - TZ=America/Guayaquil
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_URL=${VITE_API_URL}
       - VITE_STOREFRONT_URL=${STOREFRONT_URL:-http://localhost:4321}
@@ -30,6 +31,7 @@ services:
       - ./api:/app
       - /app/node_modules
     environment:
+      - TZ=America/Guayaquil
       - NODE_ENV=development
       - PORT=3000
       - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
@@ -79,6 +81,7 @@ services:
       - ./api:/app
       - /app/node_modules
     environment:
+      - TZ=America/Guayaquil
       - NODE_ENV=development
       - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
       - "APP_NAME=${APP_NAME:-R&R Template}"
@@ -110,6 +113,7 @@ services:
       - ./storefront:/app
       - /app/node_modules
     environment:
+      - TZ=America/Guayaquil
       - STOREFRONT_URL=${STOREFRONT_URL:-http://localhost:4321}
       # Server-side rendering talks to the api container directly. Points at the
       # container_name, never the service name "api": on a shared network another
@@ -130,6 +134,7 @@ services:
     # Do not publish Postgres to host to avoid port conflicts on the dokploy server.
     # Containers on the same compose network can connect to `postgres:5432` internally.
     environment:
+      - TZ=America/Guayaquil
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=${DB_NAME}
@@ -151,6 +156,7 @@ services:
     ports:
       - "8025:8025"
     environment:
+      - TZ=America/Guayaquil
       - MP_MAX_MESSAGES=500
       - MP_SMTP_AUTH_ACCEPT_ANY=1
       - MP_SMTP_AUTH_ALLOW_INSECURE=1

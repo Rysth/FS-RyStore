@@ -31,7 +31,7 @@ FROM node:24-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production
 # dumb-init reaps zombies and forwards SIGTERM so graceful shutdown works.
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init tzdata
 COPY --from=deps /app/node_modules ./node_modules
 COPY --chown=node:node . .
 USER node

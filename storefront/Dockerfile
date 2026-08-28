@@ -19,6 +19,8 @@ RUN bun run build
 # Production stage — the Astro node adapter runs as a plain Node server.
 FROM node:22-alpine AS runtime
 
+RUN apk add --no-cache tzdata
+
 WORKDIR /app
 
 ENV NODE_ENV=production \
