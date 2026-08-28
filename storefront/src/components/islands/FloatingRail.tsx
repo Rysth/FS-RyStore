@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useStore } from "@nanostores/react";
 import { totalItems } from "../../lib/cart";
 import { openCart, stickyCtaVisible } from "../../lib/cartUi";
+import { useMounted } from "../../lib/useMounted";
 import { BagIcon, WhatsAppIcon } from "./icons";
 
 interface Props {
@@ -31,9 +32,11 @@ const CART_HIDDEN_ON = ["/carrito", "/checkout"];
  * the header's CartBadge already used.
  */
 export default function FloatingRail({ whatsappNumber, pathname: initialPathname }: Props) {
+  const mounted = useMounted();
   const count = useStore(totalItems);
   const stickyCta = useStore(stickyCtaVisible);
   const [pathname, setPathname] = useState(initialPathname);
+  const visibleCount = mounted ? count : 0;
 
   useEffect(() => {
     const onPageLoad = () => setPathname(window.location.pathname);
@@ -41,7 +44,7 @@ export default function FloatingRail({ whatsappNumber, pathname: initialPathname
     return () => document.removeEventListener("astro:page-load", onPageLoad);
   }, []);
 
-  const showCart = count > 0 && !CART_HIDDEN_ON.includes(pathname);
+  const showCart = visibleCount > 0 && !CART_HIDDEN_ON.includes(pathname);
 
   if (!whatsappNumber && !showCart) return null;
 
@@ -74,11 +77,11 @@ export default function FloatingRail({ whatsappNumber, pathname: initialPathname
           onClick={openCart}
           className="relative flex size-14 items-center justify-center rounded-full text-white shadow-lg transition-transform active:scale-95"
           style={{ backgroundColor: "var(--rystore-primary)" }}
-          aria-label={`Ver carrito (${count} ${count === 1 ? "artículo" : "artículos"})`}
+          aria-label={`Ver carrito (${visibleCount} ${visibleCount === 1 ? "artículo" : "artículos"})`}
         >
           <BagIcon className="size-6" />
           <span className="absolute -right-1 -top-1 flex min-w-6 items-center justify-center rounded-full border-2 border-background bg-foreground px-1 text-xs font-bold text-background">
-            {count > 99 ? "99+" : count}
+            {visibleCount > 99 ? "99+" : visibleCount}
           </span>
         </button>
       )}

@@ -1,24 +1,28 @@
 import { useStore } from "@nanostores/react";
 import type { StoreProduct } from "../../types/store";
 import { formatPrice } from "../../lib/format";
-import { cartItems, addItem, removeItem, lineKey } from "../../lib/cart";
+import { cartItems, addItem, removeItem } from "../../lib/cart";
+import { useMounted } from "../../lib/useMounted";
 
 interface Props {
   product: StoreProduct;
 }
 
 export default function ProductCard({ product }: Props) {
+  const mounted = useMounted();
   const items = useStore(cartItems);
   const isOutOfStock = product.stock != null && product.stock <= 0;
   const isService = product.kind === "service";
   const hasVariants = (product.variants?.length ?? 0) > 0;
 
-  const inCart = items.find(
-    (item) =>
-      item.promotion_id === null &&
-      item.product_id === product.id &&
-      item.variant_id == null,
-  );
+  const inCart = mounted
+    ? items.find(
+        (item) =>
+          item.promotion_id === null &&
+          item.product_id === product.id &&
+          item.variant_id == null,
+      )
+    : undefined;
   const cartQuantity = inCart?.quantity ?? 0;
 
   function toggleCart(event: React.MouseEvent) {

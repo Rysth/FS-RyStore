@@ -12,6 +12,7 @@ import {
   type PaymentMethod,
 } from "../../types/store";
 import { SpinnerIcon } from "./icons";
+import { useMounted } from "../../lib/useMounted";
 
 /**
  * The shop's delivery_notes are deliberately not rendered here. It is free text,
@@ -49,8 +50,11 @@ const PAYMENT_OPTIONS: {
 ];
 
 export default function CheckoutForm() {
+  const mounted = useMounted();
   const items = useStore(cartItems);
   const amount = useStore(totalAmount);
+  const visibleItems = mounted ? items : [];
+  const visibleAmount = mounted ? amount : 0;
 
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
@@ -77,7 +81,7 @@ export default function CheckoutForm() {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
-  const serviceOnly = items.length > 0 && items.every((item) => item.kind === "service");
+  const serviceOnly = visibleItems.length > 0 && visibleItems.every((item) => item.kind === "service");
   const availableDeliveryOptions = serviceOnly
     ? DELIVERY_OPTIONS.filter((option) => option.value === DELIVERY_METHODS.RETIRO)
     : DELIVERY_OPTIONS;
@@ -136,11 +140,11 @@ export default function CheckoutForm() {
     setCouponError(null);
 
     try {
-      const preview = await validateCoupon(
-        code,
-        items.map((item) =>
-          item.promotion_id
-            ? { promotion_id: item.promotion_id, quantity: item.quantity }
+        const preview = await validateCoupon(
+          code,
+          visibleItems.map((item) =>
+            item.promotion_id
+              ? { promotion_id: item.promotion_id, quantity: item.quantity }
             : {
                 product_id: item.product_id,
                 variant_id: item.variant_id,
@@ -195,7 +199,7 @@ export default function CheckoutForm() {
     event.preventDefault();
     setError(null);
 
-    if (items.length === 0) {
+    if (visibleItems.length === 0) {
       setError("Tu carrito está vacío.");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -219,7 +223,7 @@ export default function CheckoutForm() {
         },
         // A combo line sends its promotion instead of a product: the server
         // prices it from the promotion and draws down every product inside it.
-        items.map((item) =>
+        visibleItems.map((item) =>
           item.promotion_id
             ? { promotion_id: item.promotion_id, quantity: item.quantity }
             : {
@@ -254,7 +258,7 @@ export default function CheckoutForm() {
     }
   }
 
-  if (items.length === 0) {
+  if (visibleItems.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border py-16 text-center">
         <p className="mb-4 text-sm text-muted-foreground">
@@ -414,7 +418,7 @@ export default function CheckoutForm() {
         <h2 className="text-base font-semibold">Tu pedido</h2>
 
         <ul className="space-y-2 text-sm">
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <li key={lineKey(item)} className="flex justify-between gap-3">
               <span className="min-w-0">
                 <span className="font-medium">{item.quantity} x</span> {item.name}
@@ -483,8 +487,8 @@ export default function CheckoutForm() {
           {appliedCoupon && (
             <div className="mb-1 flex items-center justify-between text-sm text-muted-foreground">
               <span>Subtotal</span>
-              <span>{formatPrice(amount)}</span>
-            </div>
+                <span>{formatPrice(visibleAmount)}</span>
+              </div>
           )}
           {appliedCoupon && (
             <div className="mb-1 flex items-center justify-between text-sm text-emerald-600">
@@ -494,7 +498,7 @@ export default function CheckoutForm() {
           )}
           <div className="flex items-center justify-between text-lg font-bold">
             <span>Total</span>
-            <span>{formatPrice(appliedCoupon ? appliedCoupon.total : amount)}</span>
+            <span>{formatPrice(appliedCoupon ? appliedCoupon.total : visibleAmount)}</span>
           </div>
         </div>
 

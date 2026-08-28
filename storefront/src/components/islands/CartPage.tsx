@@ -1,14 +1,18 @@
 import { useStore } from "@nanostores/react";
 import { cartItems, lineKey, totalAmount } from "../../lib/cart";
 import { formatPrice } from "../../lib/format";
+import { useMounted } from "../../lib/useMounted";
 import CartLineItem from "./CartLineItem";
 import { BagIcon } from "./icons";
 
 export default function CartPage() {
+  const mounted = useMounted();
   const items = useStore(cartItems);
   const amount = useStore(totalAmount);
+  const visibleItems = mounted ? items : [];
+  const visibleAmount = mounted ? amount : 0;
 
-  if (items.length === 0) {
+  if (visibleItems.length === 0) {
     return (
       <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-16 text-center">
         <BagIcon className="size-10 text-muted-foreground" />
@@ -27,7 +31,7 @@ export default function CartPage() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
       <ul className="space-y-3">
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <CartLineItem key={lineKey(item)} item={item} />
         ))}
       </ul>
@@ -37,7 +41,7 @@ export default function CartPage() {
 
         <div className="flex items-center justify-between text-lg font-bold">
           <span>Total</span>
-          <span>{formatPrice(amount)}</span>
+          <span>{formatPrice(visibleAmount)}</span>
         </div>
 
         <p className="text-xs text-muted-foreground">

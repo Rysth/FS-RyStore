@@ -32,9 +32,10 @@ import type {
  * fallback host at build time, regardless of what the container's real
  * environment set at runtime. process.env.X is read fresh on every request.
  */
-const INTERNAL_BASE = (
-  process.env.API_INTERNAL_URL || "http://rystore-api:3000"
-).replace(/\/$/, "");
+const INTERNAL_BASE = import.meta.env.SSR
+  ? (((globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+      ?.API_INTERNAL_URL || "http://rystore-api:3000") as string).replace(/\/$/, "")
+  : "";
 
 const PUBLIC_BASE = (import.meta.env.PUBLIC_API_URL || "").replace(/\/$/, "");
 
