@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import {
   Check,
   ChevronDown,
+  ChefHat,
   Loader2,
   Lock,
+  ReceiptText,
   ShieldCheck,
   UserCog,
   UserIcon,
@@ -51,6 +53,20 @@ const ROLE_PRESENTATION: Record<
     accent: "text-amber-600 dark:text-amber-400",
     dot: "bg-amber-500",
   },
+  cashier: {
+    label: "Cajero",
+    description: "Abre caja, registra comandas y cobra pedidos",
+    icon: ReceiptText,
+    accent: "text-emerald-600 dark:text-emerald-400",
+    dot: "bg-emerald-500",
+  },
+  kitchen: {
+    label: "Cocina",
+    description: "Ve pedidos en cocina y los marca como listos",
+    icon: ChefHat,
+    accent: "text-orange-600 dark:text-orange-400",
+    dot: "bg-orange-500",
+  },
   admin: {
     label: "Administrador",
     description: "Acceso completo, incluida la gestión de administradores",
@@ -61,7 +77,7 @@ const ROLE_PRESENTATION: Record<
 };
 
 /** Least privileged first, so the list reads as an escalation. */
-const ROLE_ORDER = ["user", "operator", "manager", "admin"];
+const ROLE_ORDER = ["user", "kitchen", "operator", "cashier", "manager", "admin"];
 
 function presentationFor(name: string) {
   return (

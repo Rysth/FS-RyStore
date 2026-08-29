@@ -147,6 +147,8 @@ const getRoleConfig = (roleName: string) => {
   > = {
     admin: { label: "Administrador", variant: "default" },
     manager: { label: "Gerente", variant: "secondary" },
+    cashier: { label: "Cajero", variant: "secondary" },
+    kitchen: { label: "Cocina", variant: "secondary" },
     operator: { label: "Operador", variant: "secondary" },
     user: { label: "Usuario", variant: "outline" },
   };
@@ -463,6 +465,9 @@ function UsersDataTable({
     "": "Todos los roles",
     admin: "Administrador",
     manager: "Gerente",
+    cashier: "Cajero",
+    kitchen: "Cocina",
+    operator: "Operador",
     user: "Usuario",
   };
 

@@ -5,7 +5,9 @@
  * backend was retired (migration phase 8). Its replacement, `npm run
  * create-admin`, only makes a single administrator — so a fresh database had
  * no way back to the users the test suite (`api/test/`) expects
- * (`manager@example.com`, `operator@example.com`, an unverified account, …).
+ * (`manager@example.com`, `operator@example.com`, an unverified account, ...).
+ * HungerApp also seeds `cashier@example.com` and `kitchen@example.com` when
+ * APP_VERTICAL=restaurant.
  * This script restores that set.
  *
  *   npm run db:seed:dev
@@ -20,7 +22,7 @@
  * indistinguishable from ones made in the admin UI.
  */
 import { eq, inArray, sql } from "drizzle-orm";
-import { isProduction } from "../config/env.ts";
+import { isProduction, isRestaurantVertical } from "../config/env.ts";
 import { generateId } from "../lib/ids.ts";
 import { hashPassword } from "../lib/password.ts";
 import { cancelOrder } from "../services/order-canceller.ts";
@@ -58,7 +60,7 @@ type Fixture = {
   email: string;
   username: string;
   fullname: string;
-  role: "admin" | "manager" | "operator" | "user";
+  role: "admin" | "manager" | "operator" | "user" | "cashier" | "kitchen";
   emailVerified: boolean;
 };
 
@@ -69,6 +71,13 @@ const FIXTURES: Fixture[] = [
   { email: "user@example.com", username: "usuario", fullname: "Usuario Demo", role: "user", emailVerified: true },
   { email: "unverified@example.com", username: "sinverificar", fullname: "Sin Verificar", role: "user", emailVerified: false },
 ];
+
+if (isRestaurantVertical) {
+  FIXTURES.push(
+    { email: "cashier@example.com", username: "cashier", fullname: "Cajero Demo", role: "cashier", emailVerified: true },
+    { email: "kitchen@example.com", username: "kitchen", fullname: "Cocina Demo", role: "kitchen", emailVerified: true },
+  );
+}
 
 /** `username` is unique (case-insensitively). Fall back to a numbered variant. */
 async function freeUsername(preferred: string): Promise<string> {
