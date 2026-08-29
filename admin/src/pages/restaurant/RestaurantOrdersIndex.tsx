@@ -63,6 +63,11 @@ export default function RestaurantOrdersIndex() {
     }, 0),
     [lines],
   );
+  const change = useMemo(() => {
+    if (paymentMethod !== "cash") return 0;
+    const received = Number(receivedAmount || 0);
+    return Math.max(0, received - total);
+  }, [paymentMethod, receivedAmount, total]);
   const activeOrders = orders.filter((order) => order.status === "preparing" || order.status === "ready");
   const dailyHistory = orders.filter((order) => order.status === "delivered" || order.status === "cancelled");
 
@@ -353,6 +358,13 @@ export default function RestaurantOrdersIndex() {
                 <span className="text-sm text-muted-foreground">Total</span>
                 <span className="text-2xl font-bold tabular-nums">{formatPrice(total)}</span>
               </div>
+
+              {paymentMethod === "cash" && change > 0 ? (
+                <div className="flex items-center justify-between rounded-lg bg-emerald-50 p-4 dark:bg-emerald-950/20">
+                  <span className="text-sm text-emerald-700 dark:text-emerald-300">Cambio</span>
+                  <span className="text-xl font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{formatPrice(change)}</span>
+                </div>
+              ) : null}
 
               <Button type="submit" className="h-12 w-full" disabled={isSubmitting || !current}>
                 {isSubmitting ? "Enviando..." : "Cobrar y enviar a cocina"}
