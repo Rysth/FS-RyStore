@@ -25,6 +25,7 @@ import { registerPromotionRoutes } from "./routes/promotions.ts";
 import { registerPublicRoutes } from "./routes/public.ts";
 import { registerReportRoutes } from "./routes/reports.ts";
 import { registerUserRoutes } from "./routes/users.ts";
+import { registerWebContentRoutes } from "./routes/web-content.ts";
 
 export async function buildServer() {
   const app = Fastify({
@@ -108,6 +109,7 @@ export async function buildServer() {
   await registerProfileRoutes(app);
   await registerCategoryRoutes(app);
   await registerProductRoutes(app);
+  await registerWebContentRoutes(app);
   await registerPromotionRoutes(app);
   await registerOrderRoutes(app);
   await registerCouponRoutes(app);

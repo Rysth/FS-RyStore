@@ -13,6 +13,9 @@ export interface Business {
   tiktok: string;
   address?: string | null;
   maps_url?: string | null;
+  about_title?: string | null;
+  about_body?: string | null;
+  contact_intro?: string | null;
   delivery_notes?: string | null;
   bank_instructions?: string | null;
   primary_color?: string | null;

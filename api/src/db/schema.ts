@@ -244,6 +244,9 @@ export const businesses = pgTable(
     // notifications go and must never reach the storefront.
     address: text("address"),
     mapsUrl: text("maps_url"),
+    aboutTitle: text("about_title"),
+    aboutBody: text("about_body"),
+    contactIntro: text("contact_intro"),
     deliveryNotes: text("delivery_notes"),
     bankInstructions: text("bank_instructions"),
     primaryColor: text("primary_color"),
@@ -301,6 +304,46 @@ export const categories = pgTable(
   ],
 );
 
+export const branches = pgTable(
+  "branches",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    name: text("name").notNull(),
+    address: text("address"),
+    hours: text("hours"),
+    phone: text("phone"),
+    whatsapp: text("whatsapp"),
+    mapsUrl: text("maps_url"),
+    active: boolean("active").notNull().default(true),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("branches_active_idx").on(table.active),
+    index("branches_position_idx").on(table.position),
+  ],
+);
+
+export const downloadableCatalogs = pgTable(
+  "downloadable_catalogs",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    title: text("title").notNull(),
+    description: text("description"),
+    coverImageKey: text("cover_image_key"),
+    fileKey: text("file_key").notNull(),
+    active: boolean("active").notNull().default(true),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("downloadable_catalogs_active_idx").on(table.active),
+    index("downloadable_catalogs_position_idx").on(table.position),
+  ],
+);
+
 export const products = pgTable(
   "products",
   {
@@ -354,6 +397,23 @@ export const productImages = pgTable(
   (table) => [
     index("product_images_product_id_position_idx").on(table.productId, table.position),
     index("product_images_product_id_idx").on(table.productId),
+  ],
+);
+
+export const productBranches = pgTable(
+  "product_branches",
+  {
+    productId: bigint("product_id", { mode: "number" })
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    branchId: bigint("branch_id", { mode: "number" })
+      .notNull()
+      .references(() => branches.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.productId, table.branchId] }),
+    index("product_branches_branch_id_idx").on(table.branchId),
   ],
 );
 
@@ -624,12 +684,24 @@ export const categoriesRelations = relations(categories, ({ many }) => ({
   products: many(products),
 }));
 
+export const branchesRelations = relations(branches, ({ many }) => ({
+  productBranches: many(productBranches),
+}));
+
+export const downloadableCatalogsRelations = relations(downloadableCatalogs, () => ({}));
+
 export const productsRelations = relations(products, ({ one, many }) => ({
   category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
   images: many(productImages),
   variants: many(productVariants),
   priceTiers: many(priceTiers),
   promotionItems: many(promotionItems),
+  productBranches: many(productBranches),
+}));
+
+export const productBranchesRelations = relations(productBranches, ({ one }) => ({
+  product: one(products, { fields: [productBranches.productId], references: [products.id] }),
+  branch: one(branches, { fields: [productBranches.branchId], references: [branches.id] }),
 }));
 
 export const productImagesRelations = relations(productImages, ({ one }) => ({
@@ -687,8 +759,11 @@ export type Permission = typeof permissions.$inferSelect;
 export type Business = typeof businesses.$inferSelect;
 
 export type Category = typeof categories.$inferSelect;
+export type Branch = typeof branches.$inferSelect;
+export type DownloadableCatalog = typeof downloadableCatalogs.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type ProductImage = typeof productImages.$inferSelect;
+export type ProductBranch = typeof productBranches.$inferSelect;
 export type ProductVariant = typeof productVariants.$inferSelect;
 export type PriceTier = typeof priceTiers.$inferSelect;
 export type Promotion = typeof promotions.$inferSelect;

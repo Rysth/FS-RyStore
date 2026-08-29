@@ -34,6 +34,8 @@ export interface ProductFormData {
   /** The full option matrix replaces whatever is stored; `[]` clears it. */
   option_types?: ProductOptionTypeInput[];
   variants?: ProductVariantInput[];
+  /** Informative availability only; stock remains global. */
+  branch_ids?: number[];
 }
 
 interface ProductFilters {

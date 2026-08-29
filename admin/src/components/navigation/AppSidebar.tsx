@@ -15,6 +15,7 @@ import {
   Tag,
   Contact,
   BarChart3,
+  Globe2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -239,6 +240,20 @@ export default function AppSidebar({
                         <NavLink to="/dashboard/promotions">
                           <Gift />
                           <span>Combos</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip="Sitio web"
+                        isActive={isActiveRoute("/dashboard/web-content")}
+                        className={activeMenuClasses}
+                      >
+                        <NavLink to="/dashboard/web-content">
+                          <Globe2 />
+                          <span>Sitio web</span>
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

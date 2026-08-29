@@ -12,6 +12,7 @@ import ProductGalleryManager from "./ProductGalleryManager";
 import ProductVideoManager from "./ProductVideoManager";
 import { useProductStore } from "../../../stores/productStore";
 import { useCategoryStore } from "../../../stores/categoryStore";
+import { useWebContentStore } from "../../../stores/webContentStore";
 import type { Product } from "../../../types/store";
 import { errorMessage } from "../../../utils/apiError";
 import { htmlToText, isHtmlEmpty } from "../../../utils/html";
@@ -50,6 +51,7 @@ interface ProductFormValues {
   active: boolean;
   price_tiers: TierRow[];
   option_types: OptionTypeRow[];
+  branch_ids: string[];
 }
 
 const MAX_PRICE_TIERS = 8;
@@ -70,6 +72,7 @@ const EMPTY_VALUES: ProductFormValues = {
   active: true,
   price_tiers: [],
   option_types: [],
+  branch_ids: [],
 };
 
 function splitOptionValues(value: string): string[] {
@@ -141,6 +144,7 @@ export default function ProductForm() {
     removeProductImage,
   } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
+  const { branches, fetchWebContent } = useWebContentStore();
 
   const form = useForm<ProductFormValues>({ defaultValues: EMPTY_VALUES });
   const tiers = useFieldArray({ control: form.control, name: "price_tiers" });
@@ -200,6 +204,12 @@ export default function ProductForm() {
     }
   }, [categories.length, fetchCategories]);
 
+  useEffect(() => {
+    fetchWebContent().catch(() => {
+      // Las sucursales son informativas; el producto puede guardarse sin ellas.
+    });
+  }, [fetchWebContent]);
+
   // Loaded here rather than handed down, because the route can be opened cold:
   // pasted URL, refresh, or a bookmark.
   useEffect(() => {
@@ -230,6 +240,7 @@ export default function ProductForm() {
             name: axis.name,
             values: axis.values.join(", "),
           })),
+          branch_ids: (loaded.branch_ids || []).map(String),
         });
         setVariantDrafts(
           Object.fromEntries(
@@ -310,6 +321,7 @@ export default function ProductForm() {
                 stock: draft.stock.trim() === "" ? null : Number(draft.stock),
               };
             }),
+      branch_ids: (values.branch_ids || []).map(Number),
     };
 
     const file = values.image && values.image.length > 0 ? values.image[0] : null;
@@ -971,6 +983,44 @@ export default function ProductForm() {
                     : "Déjalo vacío si no llevas control de inventario."}
                 </p>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60">
+            <CardContent className="space-y-3 p-5">
+              <div className="space-y-1">
+                <Label>Sucursales disponibles</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Solo informa dónde existe el producto; no maneja stock por sucursal.
+                </p>
+              </div>
+
+              {branches.length > 0 ? (
+                <div className="space-y-2">
+                  {branches.map((branch) => (
+                    <label key={branch.id} className="flex items-start gap-2 rounded-md border border-border/60 p-2 text-sm">
+                      <input
+                        type="checkbox"
+                        value={branch.id}
+                        className="mt-0.5 size-4 rounded border-input"
+                        {...form.register("branch_ids")}
+                      />
+                      <span className="min-w-0">
+                        <span className="block font-medium">{branch.name}</span>
+                        {branch.address && (
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {branch.address}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+                  Crea sucursales en Sitio web para poder marcarlas aquí.
+                </p>
+              )}
             </CardContent>
           </Card>
 

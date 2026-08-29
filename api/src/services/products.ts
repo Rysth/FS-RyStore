@@ -4,6 +4,7 @@ import { db } from "../db/client.ts";
 import type { Database } from "../db/client.ts";
 import { categories, priceTiers, productImages, products, productVariants } from "../db/schema.ts";
 import type {
+  Branch,
   OptionType,
   PriceTier,
   Product,
@@ -16,6 +17,7 @@ import { assetUrl } from "../lib/serializers.ts";
 import { uniqueSlug } from "../lib/slug.ts";
 import { totalStock, variantLabel } from "./pricing.ts";
 import type { PricedProduct, PricedVariant } from "./pricing.ts";
+import { loadProductBranches, publicBranchJson } from "./web-content.ts";
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
@@ -386,6 +388,7 @@ export type ProductRecord = {
   tiers: PriceTier[];
   variants: ProductVariant[];
   images: ProductImage[];
+  branches: Branch[];
 };
 
 export async function findProduct(id: number): Promise<ProductRecord | null> {
@@ -402,7 +405,7 @@ export async function findProduct(id: number): Promise<ProductRecord | null> {
     product: row.product,
     categoryName: row.categoryName,
     categorySlug: row.categorySlug,
-    ...(records ?? { tiers: [], variants: [], images: [] }),
+    ...(records ?? { tiers: [], variants: [], images: [], branches: [] }),
   };
 }
 
@@ -449,7 +452,7 @@ export async function listProducts(
       product: row.product,
       categoryName: row.categoryName,
       categorySlug: row.categorySlug,
-      ...(children[index] ?? { tiers: [], variants: [], images: [] }),
+      ...(children[index] ?? { tiers: [], variants: [], images: [], branches: [] }),
     })),
   };
 }
@@ -460,10 +463,10 @@ export async function listProducts(
  */
 async function loadChildren(
   ids: number[],
-): Promise<Array<{ tiers: PriceTier[]; variants: ProductVariant[]; images: ProductImage[] }>> {
+): Promise<Array<{ tiers: PriceTier[]; variants: ProductVariant[]; images: ProductImage[]; branches: Branch[] }>> {
   if (ids.length === 0) return [];
 
-  const [tiers, variants, images] = await Promise.all([
+  const [tiers, variants, images, branchMap] = await Promise.all([
     db.select().from(priceTiers).where(inArray(priceTiers.productId, ids)).orderBy(asc(priceTiers.minQuantity)),
     db
       .select()
@@ -475,12 +478,14 @@ async function loadChildren(
       .from(productImages)
       .where(inArray(productImages.productId, ids))
       .orderBy(asc(productImages.position), asc(productImages.id)),
+    loadProductBranches(ids),
   ]);
 
   return ids.map((id) => ({
     tiers: tiers.filter((row) => row.productId === id),
     variants: variants.filter((row) => row.productId === id),
     images: images.filter((row) => row.productId === id),
+    branches: branchMap.get(id) ?? [],
   }));
 }
 
@@ -633,6 +638,8 @@ export function serializeProduct(record: ProductRecord) {
       stock: variant.stock,
       position: variant.position,
     })),
+    branch_ids: record.branches.map((branch) => branch.id),
+    branches: record.branches.map(publicBranchJson),
     created_at: product.createdAt,
     updated_at: product.updatedAt,
   };

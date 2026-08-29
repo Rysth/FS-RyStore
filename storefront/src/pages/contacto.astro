@@ -1,0 +1,112 @@
+---
+import StoreLayout from "../layouts/StoreLayout.astro";
+import { fetchBranches, fetchSettings } from "../lib/api";
+import type { StoreBranch, StoreSettings } from "../types/store";
+
+let settings: StoreSettings | null = null;
+let branches: StoreBranch[] = [];
+let loadError: string | null = null;
+
+try {
+  settings = (await fetchSettings()).store;
+  branches = (await fetchBranches()).branches;
+} catch (error) {
+  loadError = error instanceof Error ? error.message : "No pudimos cargar los datos de contacto.";
+}
+
+const shopName = settings?.name || "RyStore";
+const whatsappNumber = (settings?.whatsapp || "").replace(/\D/g, "");
+const intro = settings?.contact_intro || "Si tienes alguna duda o quieres confirmar disponibilidad, escríbenos y te atendemos lo antes posible.";
+const socials = [
+  settings?.instagram ? { label: "Instagram", url: `https://instagram.com/${settings.instagram}` } : null,
+  settings?.facebook ? { label: "Facebook", url: `https://facebook.com/${settings.facebook}` } : null,
+  settings?.tiktok ? { label: "TikTok", url: `https://tiktok.com/@${settings.tiktok}` } : null,
+].filter((item): item is { label: string; url: string } => item != null);
+---
+
+<StoreLayout title="Contacto" storeSettings={settings} closed={false}>
+  <div class="mx-auto w-full max-w-6xl px-4 py-10 sm:py-14">
+    {loadError ? (
+      <p class="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{loadError}</p>
+    ) : (
+      <div class="grid gap-8 lg:grid-cols-[1fr_1.2fr]">
+        <section class="rounded-3xl border border-border/60 bg-card p-6 shadow-sm sm:p-8">
+          <p class="text-sm font-semibold uppercase tracking-wide" style="color: var(--rystore-primary)">
+            Contacto
+          </p>
+          <h1 class="mt-2 text-3xl font-bold tracking-tight">Contáctanos</h1>
+          <p class="mt-4 text-sm leading-7 text-muted-foreground sm:text-base">{intro}</p>
+
+          <div class="mt-6 space-y-3">
+            {whatsappNumber && (
+              <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold text-white" style="background-color: var(--rystore-primary)">
+                Chatear por WhatsApp
+              </a>
+            )}
+            {settings?.address && <p class="text-sm text-muted-foreground">Dirección principal: {settings.address}</p>}
+            {settings?.maps_url && (
+              <a href={settings.maps_url} target="_blank" rel="noopener noreferrer" class="inline-flex text-sm font-medium hover:underline" style="color: var(--rystore-primary)">
+                Ver dirección principal en mapa
+              </a>
+            )}
+          </div>
+
+          {socials.length > 0 && (
+            <div class="mt-8">
+              <h2 class="text-sm font-semibold">Redes sociales</h2>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {socials.map((social) => (
+                  <a href={social.url} target="_blank" rel="noopener noreferrer" class="rounded-full border border-border px-4 py-2 text-sm hover:bg-muted">
+                    {social.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section>
+          <div class="mb-4">
+            <h2 class="text-2xl font-bold tracking-tight">Sucursales</h2>
+            <p class="mt-1 text-sm text-muted-foreground">Visita nuestras ubicaciones o confirma disponibilidad antes de acercarte.</p>
+          </div>
+
+          {branches.length > 0 ? (
+            <div class="space-y-3">
+              {branches.map((branch) => {
+                const branchWhatsapp = (branch.whatsapp || "").replace(/\D/g, "");
+                return (
+                  <article class="rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
+                    <h3 class="text-lg font-semibold">{branch.name}</h3>
+                    <div class="mt-3 space-y-1.5 text-sm text-muted-foreground">
+                      {branch.address && <p>{branch.address}</p>}
+                      {branch.hours && <p>Horario: {branch.hours}</p>}
+                      {branch.phone && <p>Teléfono: {branch.phone}</p>}
+                      {branch.whatsapp && <p>WhatsApp: {branch.whatsapp}</p>}
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                      {branch.maps_url && (
+                        <a href={branch.maps_url} target="_blank" rel="noopener noreferrer" class="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-muted">
+                          Cómo llegar
+                        </a>
+                      )}
+                      {branchWhatsapp && (
+                        <a href={`https://wa.me/${branchWhatsapp}`} target="_blank" rel="noopener noreferrer" class="rounded-full px-4 py-2 text-sm font-semibold text-white" style="background-color: var(--rystore-primary)">
+                          Consultar sucursal
+                        </a>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div class="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+              {shopName} todavía no ha publicado sucursales.
+            </div>
+          )}
+        </section>
+      </div>
+    )}
+  </div>
+</StoreLayout>
