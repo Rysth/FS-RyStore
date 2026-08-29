@@ -84,7 +84,13 @@ async function paymentMethodsFor(cashRegisterId: number): Promise<RestaurantDail
       paymentsCount: sql<number>`count(*)::int`,
     })
     .from(payments)
-    .where(eq(payments.cashRegisterId, cashRegisterId))
+    .innerJoin(restaurantOrders, eq(restaurantOrders.id, payments.orderId))
+    .where(
+      and(
+        eq(payments.cashRegisterId, cashRegisterId),
+        sql`${restaurantOrders.status} <> 'cancelled'`,
+      ),
+    )
     .groupBy(payments.paymentMethod)
     .orderBy(desc(sql`sum(${payments.amount})`));
 

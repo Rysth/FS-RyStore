@@ -13,6 +13,7 @@ import {
 } from "../src/db/schema.ts";
 import { openCashRegister } from "../src/services/restaurant/cash-registers.ts";
 import {
+  cancelRestaurantOrder,
   createPaidRestaurantOrder,
   kitchenQueue,
   serializeKitchenOrder,
@@ -105,6 +106,60 @@ describe("restaurant orders", () => {
     assert.equal("total_amount" in payload, false);
     assert.equal("unit_price" in payload.items[0]!, false);
     assert.equal(payload.items[0]!.notes, "Bien dorado");
+  });
+
+  it("cancela un pedido en preparación con motivo obligatorio", async () => {
+    const opened = await openCashRegister({ userId, openingAmount: "50.00" });
+    assert.equal(opened.success, true);
+
+    const created = await createPaidRestaurantOrder({
+      userId,
+      customerName: `${PREFIX} Cancelar`,
+      channel: "local",
+      paymentMethod: "cash",
+      receivedAmount: "15.00",
+      items: [{ product_id: productId, quantity: 1 }],
+    });
+    assert.equal(created.success, true);
+
+    const withoutReason = await cancelRestaurantOrder(created.value.order.id, userId, "");
+    assert.equal(withoutReason.success, false);
+    assert.ok(withoutReason.errors[0]?.includes("motivo"));
+
+    const cancelled = await cancelRestaurantOrder(created.value.order.id, userId, "Cliente se arrepintió");
+    assert.equal(cancelled.success, true);
+    assert.equal(cancelled.value.order.status, "cancelled");
+    assert.equal(cancelled.value.order.cancelReason, "Cliente se arrepintió");
+    assert.ok(cancelled.value.order.cancelledAt);
+  });
+
+  it("no cancela un pedido ya entregado", async () => {
+    const opened = await openCashRegister({ userId, openingAmount: "50.00" });
+    assert.equal(opened.success, true);
+
+    const created = await createPaidRestaurantOrder({
+      userId,
+      customerName: `${PREFIX} Entregado`,
+      channel: "local",
+      paymentMethod: "cash",
+      receivedAmount: "15.00",
+      items: [{ product_id: productId, quantity: 1 }],
+    });
+    assert.equal(created.success, true);
+
+    // Marcar como listo y entregado directamente en BD para el test
+    await db
+      .update(restaurantOrders)
+      .set({ status: "ready", readyAt: new Date(), updatedAt: new Date() })
+      .where(eq(restaurantOrders.id, created.value.order.id));
+    await db
+      .update(restaurantOrders)
+      .set({ status: "delivered", deliveredAt: new Date(), updatedAt: new Date() })
+      .where(eq(restaurantOrders.id, created.value.order.id));
+
+    const result = await cancelRestaurantOrder(created.value.order.id, userId, "Error");
+    assert.equal(result.success, false);
+    assert.ok(result.errors[0]?.includes("entregado"));
   });
 });
 

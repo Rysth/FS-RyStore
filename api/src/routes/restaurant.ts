@@ -12,6 +12,7 @@ import {
   serializeCashRegister,
 } from "../services/restaurant/cash-registers.ts";
 import {
+  cancelRestaurantOrder,
   createPaidRestaurantOrder,
   deliverRestaurantOrder,
   kitchenQueue,
@@ -51,6 +52,10 @@ const createRestaurantOrderSchema = z.object({
   items: z.array(orderItemSchema).min(1, "Agrega al menos un producto").max(50, "No puedes agregar más de 50 productos en un pedido"),
 });
 
+const cancelRestaurantOrderSchema = z.object({
+  reason: z.string().trim().min(1, "El motivo es obligatorio").max(255, "Máximo 255 caracteres"),
+});
+
 export async function registerRestaurantRoutes(app: FastifyInstance): Promise<void> {
   const canOpenRestaurant = requirePermission(
     PERMISSION_KEYS.VIEW_CASH_REGISTER,
@@ -79,6 +84,7 @@ export async function registerRestaurantRoutes(app: FastifyInstance): Promise<vo
   );
   const canCompleteKitchen = requirePermission(PERMISSION_KEYS.COMPLETE_KITCHEN_ORDERS);
   const canDeliverOrders = requirePermission(PERMISSION_KEYS.DELIVER_ORDERS);
+  const canCancelOrders = requirePermission(PERMISSION_KEYS.VOID_PAYMENTS);
 
   app.get("/api/v1/restaurant/status", { preHandler: canOpenRestaurant }, async (_request, reply) => {
     const current = await findOpenCashRegister();
@@ -193,6 +199,21 @@ export async function registerRestaurantRoutes(app: FastifyInstance): Promise<vo
 
     return ok(reply, { order: serializeRestaurantOrder(result.value) }, {
       message: "Pedido entregado correctamente",
+    });
+  });
+
+  app.post("/api/v1/restaurant/orders/:id/cancel", { preHandler: canCancelOrders }, async (request, reply) => {
+    const id = Number((request.params as { id: string }).id);
+    if (!Number.isInteger(id)) return fail(reply, "Pedido no encontrado", 404, { error: "not_found" });
+
+    const values = parseOrFail(cancelRestaurantOrderSchema, request.body ?? {}, reply);
+    if (!values) return reply;
+
+    const result = await cancelRestaurantOrder(id, request.session!.userId, values.reason);
+    if (!result.success) return fail(reply, "No se pudo cancelar el pedido", 422, { errors: result.errors });
+
+    return ok(reply, { order: serializeRestaurantOrder(result.value) }, {
+      message: "Pedido cancelado correctamente",
     });
   });
 

@@ -12,9 +12,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuthStore } from "../../stores/authStore";
 import { useProductStore } from "../../stores/productStore";
 import { useRestaurantCashRegisterStore } from "../../stores/restaurantCashRegisterStore";
 import { useRestaurantOrderStore } from "../../stores/restaurantOrderStore";
+import { Permissions } from "../../types/auth";
 import type { Product } from "../../types/store";
 import { formatPrice } from "../../types/store";
 
@@ -37,12 +39,16 @@ const PAYMENT_METHOD_LABELS = {
 export default function RestaurantOrdersIndex() {
   const { products, isLoading: productsLoading, fetchProducts } = useProductStore();
   const { current, fetchCurrent } = useRestaurantCashRegisterStore();
-  const { orders, isSubmitting, fetchOrders, createOrder, deliverOrder } = useRestaurantOrderStore();
+  const { orders, isSubmitting, fetchOrders, createOrder, deliverOrder, cancelOrder } = useRestaurantOrderStore();
+  const { hasPermission } = useAuthStore();
+  const canCancelOrders = hasPermission(Permissions.VOID_PAYMENTS);
   const [customerName, setCustomerName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<keyof typeof PAYMENT_METHOD_LABELS>("cash");
   const [receivedAmount, setReceivedAmount] = useState("");
   const [reference, setReference] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([]);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   useEffect(() => {
     fetchCurrent().catch(() => undefined);
@@ -139,6 +145,21 @@ export default function RestaurantOrdersIndex() {
       toast.success("Pedido entregado correctamente");
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "No se pudo entregar el pedido");
+    }
+  }
+
+  async function handleCancel(id: number) {
+    if (!cancelReason.trim()) {
+      toast.error("El motivo de anulación es obligatorio");
+      return;
+    }
+    try {
+      await cancelOrder(id, cancelReason.trim());
+      setCancellingId(null);
+      setCancelReason("");
+      toast.success("Pedido cancelado correctamente");
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "No se pudo cancelar el pedido");
     }
   }
 
@@ -358,16 +379,60 @@ export default function RestaurantOrdersIndex() {
                   </div>
                   <span className="font-medium tabular-nums">{formatPrice(order.total_amount)}</span>
                 </div>
-                {order.status === "ready" ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="mt-3 w-full"
-                    onClick={() => handleDeliver(order.id)}
-                  >
-                    Entregar
-                  </Button>
-                ) : null}
+                {cancellingId === order.id ? (
+                  <div className="mt-3 space-y-2">
+                    <Input
+                      value={cancelReason}
+                      onChange={(event) => setCancelReason(event.target.value)}
+                      placeholder="Motivo de anulación"
+                      maxLength={255}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1"
+                        onClick={() => handleCancel(order.id)}
+                      >
+                        Confirmar anulación
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => { setCancellingId(null); setCancelReason(""); }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex gap-2">
+                    {order.status === "ready" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => handleDeliver(order.id)}
+                      >
+                        Entregar
+                      </Button>
+                    ) : null}
+                    {canCancelOrders ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setCancellingId(order.id)}
+                      >
+                        Anular
+                      </Button>
+                    ) : null}
+                  </div>
+                )}
               </div>
             ))}
             {activeOrders.length === 0 ? <p className="text-sm text-muted-foreground">Sin pedidos activos.</p> : null}

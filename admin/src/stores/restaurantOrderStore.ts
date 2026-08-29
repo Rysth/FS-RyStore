@@ -58,6 +58,7 @@ interface RestaurantOrderState {
   fetchOrders: () => Promise<void>;
   createOrder: (payload: CreateRestaurantOrderPayload) => Promise<RestaurantOrder>;
   deliverOrder: (id: number) => Promise<void>;
+  cancelOrder: (id: number, reason: string) => Promise<void>;
 }
 
 export const useRestaurantOrderStore = create<RestaurantOrderState>((set, get) => ({
@@ -102,6 +103,21 @@ export const useRestaurantOrderStore = create<RestaurantOrderState>((set, get) =
       });
     } catch (error: unknown) {
       const message = apiErrorMessage(error, "No se pudo entregar el pedido");
+      set({ error: message });
+      throw new Error(message);
+    }
+  },
+
+  cancelOrder: async (id, reason) => {
+    set({ error: null });
+    try {
+      const response = await api.post(`/api/v1/restaurant/orders/${id}/cancel`, { reason });
+      const updated = response.data.order as RestaurantOrder;
+      set({
+        orders: get().orders.map((order) => order.id === id ? updated : order),
+      });
+    } catch (error: unknown) {
+      const message = apiErrorMessage(error, "No se pudo cancelar el pedido");
       set({ error: message });
       throw new Error(message);
     }

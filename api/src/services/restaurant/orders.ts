@@ -211,6 +211,35 @@ export async function deliverRestaurantOrder(orderId: number): Promise<ServiceRe
   return { success: true, value: (await findRestaurantOrder(orderId))! };
 }
 
+export async function cancelRestaurantOrder(
+  orderId: number,
+  userId: string,
+  reason: string,
+): Promise<ServiceResult<RestaurantOrderRecord>> {
+  const [current] = await db.select().from(restaurantOrders).where(eq(restaurantOrders.id, orderId)).limit(1);
+  if (!current) return { success: false, errors: ["Pedido no encontrado"] };
+  if (current.status === "cancelled") return { success: true, value: (await findRestaurantOrder(orderId))! };
+  if (current.status === "delivered") return { success: false, errors: ["No se puede cancelar un pedido ya entregado"] };
+
+  const trimmedReason = reason.trim();
+  if (trimmedReason.length < 1) return { success: false, errors: ["El motivo de anulación es obligatorio"] };
+  if (trimmedReason.length > 255) return { success: false, errors: ["El motivo no puede superar 255 caracteres"] };
+
+  const now = new Date();
+  await db
+    .update(restaurantOrders)
+    .set({
+      status: "cancelled",
+      cancelledAt: now,
+      cancelledBy: userId,
+      cancelReason: trimmedReason,
+      updatedAt: now,
+    })
+    .where(eq(restaurantOrders.id, orderId));
+
+  return { success: true, value: (await findRestaurantOrder(orderId))! };
+}
+
 export async function findRestaurantOrder(orderId: number): Promise<RestaurantOrderRecord | null> {
   const [order] = await db.select().from(restaurantOrders).where(eq(restaurantOrders.id, orderId)).limit(1);
   if (!order) return null;

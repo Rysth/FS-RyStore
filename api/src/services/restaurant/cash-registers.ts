@@ -163,7 +163,13 @@ export async function liveTotals(cashRegisterId: number): Promise<CashRegisterTo
       ordersPaidCount: sql<number>`count(distinct ${payments.orderId})::int`,
     })
     .from(payments)
-    .where(eq(payments.cashRegisterId, cashRegisterId));
+    .innerJoin(restaurantOrders, eq(restaurantOrders.id, payments.orderId))
+    .where(
+      and(
+        eq(payments.cashRegisterId, cashRegisterId),
+        sql`${restaurantOrders.status} <> 'cancelled'`,
+      ),
+    );
 
   const [orderTotals] = await db
     .select({ count: sql<number>`count(*)::int` })
