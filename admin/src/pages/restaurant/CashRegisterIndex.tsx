@@ -1,4 +1,67 @@
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
+import toast from "react-hot-toast";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { formatPrice } from "../../types/store";
+import { useRestaurantCashRegisterStore } from "../../stores/restaurantCashRegisterStore";
+
 export default function CashRegisterIndex() {
+  const {
+    current,
+    liveTotals,
+    isLoading,
+    isSubmitting,
+    error,
+    fetchCurrent,
+    open,
+    close,
+  } = useRestaurantCashRegisterStore();
+  const [openingAmount, setOpeningAmount] = useState("0.00");
+  const [closingAmount, setClosingAmount] = useState("");
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    fetchCurrent().catch(() => undefined);
+  }, [fetchCurrent]);
+
+  async function handleOpen(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      await open(openingAmount);
+      toast.success("Caja abierta correctamente");
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "No se pudo abrir la caja");
+    }
+  }
+
+  async function handleClose(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!current) return;
+
+    try {
+      await close(current.id, closingAmount, notes);
+      setClosingAmount("");
+      setNotes("");
+      toast.success("Caja cerrada correctamente");
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "No se pudo cerrar la caja");
+    }
+  }
+
+  const expectedCash = current
+    ? Number(current.opening_amount) + Number(liveTotals?.cashTotal ?? current.cash_total ?? 0)
+    : 0;
+
   return (
     <section className="space-y-4">
       <div>
@@ -10,13 +73,127 @@ export default function CashRegisterIndex() {
         </p>
       </div>
 
-      <div className="rounded-xl border border-dashed border-border bg-card p-6">
-        <h2 className="text-base font-semibold">Próximo módulo</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          El siguiente paso es crear el modelo de caja y pagos con garantías de
-          concurrencia para evitar dobles cobros y descuadres.
-        </p>
-      </div>
+      {error ? (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
+
+      {isLoading ? (
+        <Card>
+          <CardContent className="py-8 text-sm text-muted-foreground">
+            Cargando caja...
+          </CardContent>
+        </Card>
+      ) : current?.status === "open" ? (
+        <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+          <Card>
+            <CardHeader>
+              <CardTitle>Caja abierta</CardTitle>
+              <CardDescription>
+                Día operativo {current.business_date}. Abierta el {formatDateTime(current.opened_at)}.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Metric label="Fondo inicial" value={formatPrice(current.opening_amount)} />
+                <Metric label="Efectivo cobrado" value={formatPrice(liveTotals?.cashTotal)} />
+                <Metric label="Efectivo esperado" value={formatPrice(expectedCash)} />
+                <Metric label="Transferencias" value={formatPrice(liveTotals?.transferTotal)} />
+                <Metric label="Tarjeta" value={formatPrice(liveTotals?.cardTotal)} />
+                <Metric label="Plataformas" value={formatPrice(liveTotals?.platformTotal)} />
+                <Metric label="Ventas totales" value={formatPrice(liveTotals?.totalSales)} />
+                <Metric label="Pedidos tomados" value={`${liveTotals?.ordersCount ?? 0}`} />
+                <Metric label="Pedidos cobrados" value={`${liveTotals?.ordersPaidCount ?? 0}`} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Cerrar caja</CardTitle>
+              <CardDescription>
+                Registra el efectivo contado. Los totales quedarán congelados.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleClose} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="closing_amount">Efectivo contado</Label>
+                  <Input
+                    id="closing_amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={closingAmount}
+                    onChange={(event) => setClosingAmount(event.target.value)}
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cash_notes">Notas</Label>
+                  <Textarea
+                    id="cash_notes"
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    placeholder="Observaciones del turno"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? "Cerrando..." : "Cerrar caja"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <Card className="max-w-xl">
+          <CardHeader>
+            <CardTitle>Abrir caja</CardTitle>
+            <CardDescription>
+              Registra el fondo inicial para empezar el día operativo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleOpen} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="opening_amount">Fondo inicial</Label>
+                <Input
+                  id="opening_amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={openingAmount}
+                  onChange={(event) => setOpeningAmount(event.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Abriendo..." : "Abrir caja"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
     </section>
   );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-4">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat("es-EC", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
