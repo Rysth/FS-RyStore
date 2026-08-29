@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/client.ts";
 import { cashRegisters, payments, restaurantOrders } from "../../db/schema.ts";
 import type { CashRegister } from "../../db/schema.ts";
@@ -113,6 +113,16 @@ export async function closeCashRegister(input: CloseCashRegisterInput): Promise<
     return { success: false, errors: ["Solo quien abrió la caja puede cerrarla"] };
   }
 
+  const active = await activeOrdersForRegister(input.id);
+  if (active.count > 0) {
+    return {
+      success: false,
+      errors: [
+        `Hay ${active.count} pedido(s) en cocina o listos por ${active.total}. Entrégalos antes de cerrar.`,
+      ],
+    };
+  }
+
   const totals = await liveTotals(input.id);
   const expectedCash = toCents(current.openingAmount) + toCents(totals.cashTotal);
   const difference = subtractCents(closingCents, expectedCash);
@@ -169,6 +179,23 @@ export async function liveTotals(cashRegisterId: number): Promise<CashRegisterTo
     ordersCount: orderTotals?.count ?? 0,
     ordersPaidCount: paymentTotals?.ordersPaidCount ?? 0,
   };
+}
+
+async function activeOrdersForRegister(cashRegisterId: number): Promise<{ count: number; total: string }> {
+  const [row] = await db
+    .select({
+      count: sql<number>`count(*)::int`,
+      total: sql<string>`coalesce(sum(${restaurantOrders.totalAmount}), 0)::numeric(10,2)`,
+    })
+    .from(restaurantOrders)
+    .where(
+      and(
+        eq(restaurantOrders.cashRegisterId, cashRegisterId),
+        inArray(restaurantOrders.status, ["preparing", "ready"]),
+      ),
+    );
+
+  return { count: row?.count ?? 0, total: normalizeMoney(row?.total) };
 }
 
 function businessDateFor(date: Date): string {

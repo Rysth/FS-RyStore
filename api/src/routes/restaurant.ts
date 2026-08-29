@@ -20,6 +20,7 @@ import {
   serializeKitchenOrder,
   serializeRestaurantOrder,
 } from "../services/restaurant/orders.ts";
+import { cashRegisterDailyReport } from "../services/restaurant/reports.ts";
 
 const openCashRegisterSchema = z.object({
   opening_amount: z.string().trim().default("0.00"),
@@ -97,6 +98,7 @@ export async function registerRestaurantRoutes(app: FastifyInstance): Promise<vo
     return ok(reply, {
       cash_register: serializeCashRegister(current),
       live_totals: await liveTotals(current.id),
+      daily_report: await cashRegisterDailyReport(current.id),
     });
   });
 

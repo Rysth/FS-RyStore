@@ -36,9 +36,33 @@ export interface CashRegisterLiveTotals {
   ordersPaidCount: number;
 }
 
+export interface RestaurantDailyReport {
+  cash_register_id: number;
+  totals: {
+    cash_total: string;
+    transfer_total: string;
+    card_total: string;
+    platform_total: string;
+    total_sales: string;
+    orders_count: number;
+    orders_paid_count: number;
+  };
+  top_products: Array<{
+    product_name: string;
+    quantity: number;
+    revenue: string;
+  }>;
+  payment_methods: Array<{
+    method: string;
+    total: string;
+    payments_count: number;
+  }>;
+}
+
 interface CashRegisterState {
   current: CashRegister | null;
   liveTotals: CashRegisterLiveTotals | null;
+  dailyReport: RestaurantDailyReport | null;
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
@@ -50,6 +74,7 @@ interface CashRegisterState {
 export const useRestaurantCashRegisterStore = create<CashRegisterState>((set) => ({
   current: null,
   liveTotals: null,
+  dailyReport: null,
   isLoading: false,
   isSubmitting: false,
   error: null,
@@ -61,6 +86,7 @@ export const useRestaurantCashRegisterStore = create<CashRegisterState>((set) =>
       set({
         current: response.data.cash_register,
         liveTotals: response.data.live_totals,
+        dailyReport: response.data.daily_report,
         isLoading: false,
       });
     } catch (error: unknown) {
@@ -87,6 +113,20 @@ export const useRestaurantCashRegisterStore = create<CashRegisterState>((set) =>
           ordersCount: 0,
           ordersPaidCount: 0,
         },
+        dailyReport: {
+          cash_register_id: response.data.cash_register.id,
+          totals: {
+            cash_total: "0.00",
+            transfer_total: "0.00",
+            card_total: "0.00",
+            platform_total: "0.00",
+            total_sales: "0.00",
+            orders_count: 0,
+            orders_paid_count: 0,
+          },
+          top_products: [],
+          payment_methods: [],
+        },
         isSubmitting: false,
       });
     } catch (error: unknown) {
@@ -106,6 +146,7 @@ export const useRestaurantCashRegisterStore = create<CashRegisterState>((set) =>
       set({
         current: response.data.cash_register,
         liveTotals: null,
+        dailyReport: null,
         isSubmitting: false,
       });
     } catch (error: unknown) {

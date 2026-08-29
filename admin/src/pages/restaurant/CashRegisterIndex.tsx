@@ -19,6 +19,7 @@ export default function CashRegisterIndex() {
   const {
     current,
     liveTotals,
+    dailyReport,
     isLoading,
     isSubmitting,
     error,
@@ -87,27 +88,71 @@ export default function CashRegisterIndex() {
         </Card>
       ) : current?.status === "open" ? (
         <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
-          <Card>
-            <CardHeader>
-              <CardTitle>Caja abierta</CardTitle>
-              <CardDescription>
-                Día operativo {current.business_date}. Abierta el {formatDateTime(current.opened_at)}.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <Metric label="Fondo inicial" value={formatPrice(current.opening_amount)} />
-                <Metric label="Efectivo cobrado" value={formatPrice(liveTotals?.cashTotal)} />
-                <Metric label="Efectivo esperado" value={formatPrice(expectedCash)} />
-                <Metric label="Transferencias" value={formatPrice(liveTotals?.transferTotal)} />
-                <Metric label="Tarjeta" value={formatPrice(liveTotals?.cardTotal)} />
-                <Metric label="Plataformas" value={formatPrice(liveTotals?.platformTotal)} />
-                <Metric label="Ventas totales" value={formatPrice(liveTotals?.totalSales)} />
-                <Metric label="Pedidos tomados" value={`${liveTotals?.ordersCount ?? 0}`} />
-                <Metric label="Pedidos cobrados" value={`${liveTotals?.ordersPaidCount ?? 0}`} />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Caja abierta</CardTitle>
+                <CardDescription>
+                  Día operativo {current.business_date}. Abierta el {formatDateTime(current.opened_at)}.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <Metric label="Fondo inicial" value={formatPrice(current.opening_amount)} />
+                  <Metric label="Efectivo cobrado" value={formatPrice(liveTotals?.cashTotal)} />
+                  <Metric label="Efectivo esperado" value={formatPrice(expectedCash)} />
+                  <Metric label="Transferencias" value={formatPrice(liveTotals?.transferTotal)} />
+                  <Metric label="Tarjeta" value={formatPrice(liveTotals?.cardTotal)} />
+                  <Metric label="Plataformas" value={formatPrice(liveTotals?.platformTotal)} />
+                  <Metric label="Ventas totales" value={formatPrice(liveTotals?.totalSales)} />
+                  <Metric label="Pedidos tomados" value={`${liveTotals?.ordersCount ?? 0}`} />
+                  <Metric label="Pedidos cobrados" value={`${liveTotals?.ordersPaidCount ?? 0}`} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Productos más vendidos</CardTitle>
+                <CardDescription>
+                  Ranking del día operativo actual por importe vendido.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {dailyReport?.top_products.length ? (
+                  dailyReport.top_products.map((product) => (
+                    <div key={product.product_name} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
+                      <div>
+                        <p className="font-medium">{product.product_name}</p>
+                        <p className="text-xs text-muted-foreground">{product.quantity} vendido(s)</p>
+                      </div>
+                      <span className="font-semibold tabular-nums">{formatPrice(product.revenue)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">Aún no hay productos vendidos.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Métodos de pago</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {dailyReport?.payment_methods.length ? (
+                  dailyReport.payment_methods.map((method) => (
+                    <div key={method.method} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
+                      <span>{paymentMethodLabel(method.method)} · {method.payments_count}</span>
+                      <span className="font-semibold tabular-nums">{formatPrice(method.total)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">Sin cobros registrados.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
           <Card>
             <CardHeader>
@@ -196,4 +241,14 @@ function formatDateTime(value: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function paymentMethodLabel(value: string): string {
+  const labels: Record<string, string> = {
+    cash: "Efectivo",
+    transfer: "Transferencia",
+    card: "Tarjeta",
+    platform: "Plataforma",
+  };
+  return labels[value] ?? value;
 }
