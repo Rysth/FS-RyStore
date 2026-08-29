@@ -46,6 +46,7 @@ interface ProductFormValues {
   price: string;
   compare_at_price: string;
   category_id: string;
+  default_ingredients: string;
   image: FileList | null;
   stock: string;
   active: boolean;
@@ -67,6 +68,7 @@ const EMPTY_VALUES: ProductFormValues = {
   price: "",
   compare_at_price: "",
   category_id: "",
+  default_ingredients: "",
   image: null,
   stock: "",
   active: true,
@@ -76,6 +78,22 @@ const EMPTY_VALUES: ProductFormValues = {
 };
 
 function splitOptionValues(value: string): string[] {
+  const seen = new Set<string>();
+
+  return value
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter((item) => {
+      if (!item) return false;
+
+      const key = item.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function splitList(value: string): string[] {
   const seen = new Set<string>();
 
   return value
@@ -229,6 +247,7 @@ export default function ProductForm() {
           price: loaded.price,
           compare_at_price: loaded.compare_at_price || "",
           category_id: loaded.category_id ? String(loaded.category_id) : "",
+          default_ingredients: (loaded.default_ingredients || []).join(", "),
           image: null,
           stock: loaded.stock != null ? String(loaded.stock) : "",
           active: loaded.active,
@@ -295,6 +314,7 @@ export default function ProductForm() {
       // An empty stock means "don't track inventory for this product"
       stock: values.kind === "service" || values.stock === "" ? null : Number(values.stock),
       active: values.active,
+      default_ingredients: splitList(values.default_ingredients),
       // Always sent: an empty array is how the API is told to clear the ladder.
       price_tiers: values.price_tiers
         .filter((row) => row.min_quantity !== "" || row.unit_price !== "")
@@ -456,6 +476,28 @@ export default function ProductForm() {
             {form.formState.errors.name && (
               <p className="text-xs text-destructive">
                 {form.formState.errors.name.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="product-default-ingredients">Ingredientes base</Label>
+            <textarea
+              id="product-default-ingredients"
+              rows={3}
+              placeholder="Cebolla, queso, tomate..."
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/50"
+              {...form.register("default_ingredients", {
+                validate: (value) =>
+                  splitList(value).length <= 30 || "Máximo 30 ingredientes base",
+              })}
+            />
+            <p className="text-xs text-muted-foreground">
+              En HungerApp aparecen como botones rápidos de “Sin ___” en Comanda.
+            </p>
+            {form.formState.errors.default_ingredients && (
+              <p className="text-xs text-destructive">
+                {form.formState.errors.default_ingredients.message}
               </p>
             )}
           </div>

@@ -38,7 +38,37 @@ export const MAX_VARIANTS = 100;
 export const MAX_DESCRIPTION_HTML = 20_000;
 export const MAX_DESCRIPTION_TEXT = 2_000;
 export const MAX_SKU_LENGTH = 60;
+export const MAX_DEFAULT_INGREDIENTS = 30;
+export const MAX_DEFAULT_INGREDIENT_LENGTH = 60;
 export const KINDS = ["product", "service"] as const;
+
+export function normalizeDefaultIngredients(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<string>();
+  const ingredients: string[] = [];
+
+  for (const entry of input) {
+    const value = String(entry ?? "").trim();
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    ingredients.push(value);
+  }
+
+  return ingredients;
+}
+
+export function validateDefaultIngredients(ingredients: string[]): string[] {
+  const errors: string[] = [];
+  if (ingredients.length > MAX_DEFAULT_INGREDIENTS) {
+    errors.push(`No puedes configurar más de ${MAX_DEFAULT_INGREDIENTS} ingredientes base`);
+  }
+  if (ingredients.some((ingredient) => ingredient.length > MAX_DEFAULT_INGREDIENT_LENGTH)) {
+    errors.push(`Cada ingrediente base debe tener máximo ${MAX_DEFAULT_INGREDIENT_LENGTH} caracteres`);
+  }
+  return errors;
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Description
@@ -620,6 +650,7 @@ export function serializeProduct(record: ProductRecord) {
     video_url: assetUrl(product.videoKey),
     active: product.active,
     kind: product.kind,
+    default_ingredients: product.defaultIngredients as string[],
     stock: product.stock,
     // Total across the matrix when there is one, so the product list can keep
     // showing a single number per row.

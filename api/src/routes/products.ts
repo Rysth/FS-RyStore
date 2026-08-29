@@ -39,6 +39,8 @@ import {
   validateProduct,
   validateTiers,
   validateVariants,
+  normalizeDefaultIngredients,
+  validateDefaultIngredients,
 } from "../services/products.ts";
 import type { ProductRecord } from "../services/products.ts";
 
@@ -80,6 +82,7 @@ const productSchema = z.object({
   kind: z.string().optional(),
   price_tiers: z.array(z.record(z.unknown())).optional(),
   option_types: z.array(z.record(z.unknown())).optional(),
+  default_ingredients: z.array(z.string()).optional(),
   variants: z.array(z.record(z.unknown())).optional(),
   branch_ids: z.array(z.coerce.number().int()).optional(),
 });
@@ -150,6 +153,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
     const tiers = normalizeTiers(values.price_tiers ?? []);
     const variants = normalizeVariants(values.variants ?? []);
     const branchIds = normalizeBranchIds(values.branch_ids ?? []);
+    const defaultIngredients = normalizeDefaultIngredients(values.default_ingredients ?? []);
 
     const errors = [
       ...validateProduct({
@@ -162,6 +166,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
       }),
       ...validateTiers(tiers, price),
       ...validateOptionTypes(optionTypes),
+      ...validateDefaultIngredients(defaultIngredients),
       ...validateVariants(variants, optionTypes),
     ];
     if (errors.length > 0) {
@@ -186,6 +191,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
           active: values.active ?? true,
           stock: stockForKind(kind, values.stock ?? null),
           optionTypes,
+          defaultIngredients,
           kind,
         })
         .returning({ id: products.id });
@@ -236,6 +242,9 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
             ? (current.optionTypes as OptionType[])
             : normalizeOptionTypes(values.option_types);
         const tiers = values.price_tiers === undefined ? null : normalizeTiers(values.price_tiers);
+        const defaultIngredients = values.default_ingredients === undefined
+          ? (current.defaultIngredients as string[])
+          : normalizeDefaultIngredients(values.default_ingredients);
         // Clearing the axes clears the matrix with them: a variant with no axis
         // to belong to could never be selected again.
         const variants =
@@ -258,6 +267,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
           ...validateProduct({ name, description, price, compareAtPrice, stock, kind }),
           ...validateTiers(tiers ?? [], price),
           ...validateOptionTypes(optionTypes),
+          ...validateDefaultIngredients(defaultIngredients),
           ...validateVariants(variants ?? storedVariants, optionTypes),
         ];
         if (errors.length > 0) {
@@ -284,6 +294,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
               ...(values.active !== undefined ? { active: values.active } : {}),
               stock: stockForKind(kind, stock),
               optionTypes,
+              defaultIngredients,
               kind,
               updatedAt: new Date(),
             })

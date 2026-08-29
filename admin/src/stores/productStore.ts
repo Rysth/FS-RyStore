@@ -29,6 +29,7 @@ export interface ProductFormData {
   category_id?: number | null;
   active: boolean;
   stock?: number | null;
+  default_ingredients?: string[];
   /** The full ladder replaces whatever is stored; `[]` clears it. */
   price_tiers?: PriceTierInput[];
   /** The full option matrix replaces whatever is stored; `[]` clears it. */

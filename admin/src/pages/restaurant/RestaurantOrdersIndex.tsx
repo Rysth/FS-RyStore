@@ -79,6 +79,18 @@ export default function RestaurantOrdersIndex() {
     );
   }
 
+  function toggleRemovedIngredient(line: DraftLine, ingredient: string) {
+    const current = line.removedIngredients
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const exists = current.some((value) => value.toLowerCase() === ingredient.toLowerCase());
+    const next = exists
+      ? current.filter((value) => value.toLowerCase() !== ingredient.toLowerCase())
+      : [...current, ingredient];
+    updateLine(line.product.id, { removedIngredients: next.join(", ") });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!current) {
@@ -221,6 +233,30 @@ export default function RestaurantOrdersIndex() {
                           onChange={(event) => updateLine(line.product.id, { removedIngredients: event.target.value })}
                           placeholder="Sin cebolla, sin queso..."
                         />
+                        {line.product.default_ingredients?.length ? (
+                          <div className="flex flex-wrap gap-2">
+                            {line.product.default_ingredients.map((ingredient) => {
+                              const active = line.removedIngredients
+                                .split(",")
+                                .map((value) => value.trim().toLowerCase())
+                                .includes(ingredient.toLowerCase());
+                              return (
+                                <button
+                                  key={ingredient}
+                                  type="button"
+                                  onClick={() => toggleRemovedIngredient(line, ingredient)}
+                                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                                    active
+                                      ? "border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                                      : "border-border bg-muted/30 text-muted-foreground hover:text-foreground"
+                                  }`}
+                                >
+                                  Sin {ingredient}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
                         <div className="grid gap-2 sm:grid-cols-[1fr_96px] xl:grid-cols-[1fr_96px]">
                           <Input
                             value={line.extraName}

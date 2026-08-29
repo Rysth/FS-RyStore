@@ -86,6 +86,7 @@ export interface Product {
   /** One short clip, or null. Kept apart from the gallery — see Product#video. */
   video_url?: string | null;
   active: boolean;
+  default_ingredients: string[];
   stock: number | null;
   total_stock?: number | null;
   price_tiers: PriceTier[];
