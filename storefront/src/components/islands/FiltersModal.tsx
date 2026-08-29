@@ -56,7 +56,7 @@ export default function FiltersModal({ open, onClose, categories, filters, onCha
         aria-label="Filtros"
         tabIndex={-1}
         className={`fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-lg flex-col rounded-t-3xl bg-background shadow-xl outline-none transition-transform duration-300 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:rounded-2xl ${
-          open ? "translate-y-0" : "translate-y-full sm:translate-y-6 sm:opacity-0"
+          open ? "translate-y-0" : "pointer-events-none translate-y-full sm:translate-y-6 sm:opacity-0"
         }`}
         style={{ maxHeight: "88vh" }}
       >
