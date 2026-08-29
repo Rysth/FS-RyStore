@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useProductStore } from "../../stores/productStore";
 import { useRestaurantCashRegisterStore } from "../../stores/restaurantCashRegisterStore";
 import { useRestaurantOrderStore } from "../../stores/restaurantOrderStore";
@@ -20,6 +21,10 @@ import { formatPrice } from "../../types/store";
 interface DraftLine {
   product: Product;
   quantity: number;
+  removedIngredients: string;
+  extraName: string;
+  extraPrice: string;
+  notes: string;
 }
 
 const PAYMENT_METHOD_LABELS = {
@@ -32,7 +37,7 @@ const PAYMENT_METHOD_LABELS = {
 export default function RestaurantOrdersIndex() {
   const { products, isLoading: productsLoading, fetchProducts } = useProductStore();
   const { current, fetchCurrent } = useRestaurantCashRegisterStore();
-  const { orders, isSubmitting, fetchOrders, createOrder } = useRestaurantOrderStore();
+  const { orders, isSubmitting, fetchOrders, createOrder, deliverOrder } = useRestaurantOrderStore();
   const [customerName, setCustomerName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<keyof typeof PAYMENT_METHOD_LABELS>("cash");
   const [receivedAmount, setReceivedAmount] = useState("");
@@ -46,9 +51,13 @@ export default function RestaurantOrdersIndex() {
   }, [fetchCurrent, fetchOrders, fetchProducts]);
 
   const total = useMemo(
-    () => lines.reduce((sum, line) => sum + Number(line.product.price) * line.quantity, 0),
+    () => lines.reduce((sum, line) => {
+      const extra = line.extraName.trim() ? Number(line.extraPrice || 0) : 0;
+      return sum + (Number(line.product.price) + extra) * line.quantity;
+    }, 0),
     [lines],
   );
+  const activeOrders = orders.filter((order) => order.status === "preparing" || order.status === "ready");
 
   function addProduct(product: Product) {
     setLines((currentLines) => {
@@ -58,14 +67,14 @@ export default function RestaurantOrdersIndex() {
           line.product.id === product.id ? { ...line, quantity: line.quantity + 1 } : line,
         );
       }
-      return [...currentLines, { product, quantity: 1 }];
+      return [...currentLines, { product, quantity: 1, removedIngredients: "", extraName: "", extraPrice: "", notes: "" }];
     });
   }
 
-  function updateQuantity(productId: number, quantity: number) {
+  function updateLine(productId: number, patch: Partial<Omit<DraftLine, "product">>) {
     setLines((currentLines) =>
       currentLines
-        .map((line) => line.product.id === productId ? { ...line, quantity } : line)
+        .map((line) => line.product.id === productId ? { ...line, ...patch } : line)
         .filter((line) => line.quantity > 0),
     );
   }
@@ -91,6 +100,14 @@ export default function RestaurantOrdersIndex() {
         items: lines.map((line) => ({
           product_id: line.product.id,
           quantity: line.quantity,
+          removed_ingredients: line.removedIngredients
+            .split(",")
+            .map((ingredient) => ingredient.trim())
+            .filter(Boolean),
+          extras: line.extraName.trim() && line.extraPrice.trim()
+            ? [{ name: line.extraName, price: line.extraPrice }]
+            : [],
+          notes: line.notes || null,
         })),
       });
       setCustomerName("");
@@ -101,6 +118,15 @@ export default function RestaurantOrdersIndex() {
       toast.success(`Pedido #${order.number} enviado a cocina`);
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "No se pudo registrar el pedido");
+    }
+  }
+
+  async function handleDeliver(id: number) {
+    try {
+      await deliverOrder(id);
+      toast.success("Pedido entregado correctamente");
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "No se pudo entregar el pedido");
     }
   }
 
@@ -174,19 +200,48 @@ export default function RestaurantOrdersIndex() {
                 ) : (
                   <div className="space-y-2">
                     {lines.map((line) => (
-                      <div key={line.product.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{line.product.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatPrice(line.product.price)} c/u
-                          </p>
+                      <div key={line.product.id} className="space-y-3 rounded-lg border border-border p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{line.product.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatPrice(line.product.price)} c/u
+                            </p>
+                          </div>
+                          <Input
+                            type="number"
+                            min="0"
+                            className="w-20"
+                            value={line.quantity}
+                            onChange={(event) => updateLine(line.product.id, { quantity: Number(event.target.value) })}
+                          />
                         </div>
                         <Input
-                          type="number"
-                          min="0"
-                          className="w-20"
-                          value={line.quantity}
-                          onChange={(event) => updateQuantity(line.product.id, Number(event.target.value))}
+                          value={line.removedIngredients}
+                          onChange={(event) => updateLine(line.product.id, { removedIngredients: event.target.value })}
+                          placeholder="Sin cebolla, sin queso..."
+                        />
+                        <div className="grid gap-2 sm:grid-cols-[1fr_96px] xl:grid-cols-[1fr_96px]">
+                          <Input
+                            value={line.extraName}
+                            onChange={(event) => updateLine(line.product.id, { extraName: event.target.value })}
+                            placeholder="Extra: tocino, cheddar..."
+                          />
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputMode="decimal"
+                            value={line.extraPrice}
+                            onChange={(event) => updateLine(line.product.id, { extraPrice: event.target.value })}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <Textarea
+                          value={line.notes}
+                          onChange={(event) => updateLine(line.product.id, { notes: event.target.value })}
+                          placeholder="Nota para cocina"
+                          className="min-h-14"
                         />
                       </div>
                     ))}
@@ -250,16 +305,36 @@ export default function RestaurantOrdersIndex() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Pedidos recientes</CardTitle>
+            <CardTitle>Pedidos activos</CardTitle>
+            <CardDescription>
+              Entrega solo los pedidos que cocina ya marcó como listos.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {orders.slice(0, 5).map((order) => (
-              <div key={order.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
-                <span>#{order.number} · {order.customer_name}</span>
-                <span className="font-medium tabular-nums">{formatPrice(order.total_amount)}</span>
+            {activeOrders.map((order) => (
+              <div key={order.id} className="rounded-lg border border-border px-3 py-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">#{order.number} · {order.customer_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {order.status === "ready" ? "Listo para entregar" : "En cocina"}
+                    </p>
+                  </div>
+                  <span className="font-medium tabular-nums">{formatPrice(order.total_amount)}</span>
+                </div>
+                {order.status === "ready" ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="mt-3 w-full"
+                    onClick={() => handleDeliver(order.id)}
+                  >
+                    Entregar
+                  </Button>
+                ) : null}
               </div>
             ))}
-            {orders.length === 0 ? <p className="text-sm text-muted-foreground">Sin pedidos todavía.</p> : null}
+            {activeOrders.length === 0 ? <p className="text-sm text-muted-foreground">Sin pedidos activos.</p> : null}
           </CardContent>
         </Card>
       </div>
