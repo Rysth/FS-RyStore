@@ -14,6 +14,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_URL=${VITE_API_URL}
       - VITE_STOREFRONT_URL=${STOREFRONT_URL:-http://localhost:4321}
+      - VITE_APP_VERTICAL=${VITE_APP_VERTICAL:-store}
     depends_on:
       api:
         condition: service_healthy
@@ -36,6 +37,7 @@ services:
       - PORT=3000
       - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
       - "APP_NAME=${APP_NAME:-R&R Template}"
+      - APP_VERTICAL=${APP_VERTICAL:-store}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
       - ADMIN_FRONTEND_URL=${ADMIN_FRONTEND_URL:-http://localhost:5173}
       - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-http://localhost:5173}
@@ -86,6 +88,7 @@ services:
       - NODE_ENV=development
       - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
       - "APP_NAME=${APP_NAME:-R&R Template}"
+      - APP_VERTICAL=${APP_VERTICAL:-store}
       - SECRET_KEY_BASE=${SECRET_KEY_BASE}
       - ADMIN_FRONTEND_URL=${ADMIN_FRONTEND_URL:-http://localhost:5173}
       - SMTP_HOST=mailpit
@@ -123,6 +126,7 @@ services:
       - API_INTERNAL_URL=${API_INTERNAL_URL:-http://rystore-api:3000}
       # What the buyer's browser calls (checkout, coupon preview, receipt upload).
       - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:3000}
+      - PUBLIC_APP_VERTICAL=${PUBLIC_APP_VERTICAL:-store}
     depends_on:
       api:
         condition: service_healthy

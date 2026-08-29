@@ -7,6 +7,7 @@ import Footer from "../components/astro/Footer.astro";
 import StoreClosed from "../components/astro/StoreClosed.astro";
 import FloatingCart from "../components/islands/FloatingCart";
 import FloatingRail from "../components/islands/FloatingRail";
+import { IS_RESTAURANT_VERTICAL } from "../lib/vertical";
 import "../styles/global.css";
 
 interface Props {
@@ -67,7 +68,9 @@ const pageTitle = isClosed
 const pageDescription =
   isClosed
     ? `${shopName} está actualizando su catálogo y volverá a abrir en breve.`
-    : description || settings?.slogan || "Catálogo online con pedidos por WhatsApp.";
+    : description || settings?.slogan || (IS_RESTAURANT_VERTICAL
+      ? "Menú digital con pedidos por WhatsApp."
+      : "Catálogo online con pedidos por WhatsApp.");
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 const ogImage = image || settings?.logo_url || null;
 const favicon = settings?.logo_url || null;

@@ -22,6 +22,7 @@ import { useBusinessStore } from "../stores/businessStore";
 import { Permissions } from "../types/auth";
 import { getDefaultAdminRoute } from "../utils/adminRoutes";
 import { STOREFRONT_URL } from "../utils/storefront";
+import { IS_RESTAURANT_VERTICAL } from "../config/app";
 
 export default function DashboardLayout() {
   const { user, hasPermission, hasAnyPermission } = useAuthStore();
@@ -72,6 +73,15 @@ export default function DashboardLayout() {
     Permissions.VIEW_COUPONS,
     Permissions.VIEW_CONTACTS,
     Permissions.VIEW_REPORTS,
+    ...(IS_RESTAURANT_VERTICAL
+      ? [
+          Permissions.VIEW_CASH_REGISTER,
+          Permissions.MANAGE_CASH_REGISTER,
+          Permissions.VIEW_KITCHEN,
+          Permissions.COMPLETE_KITCHEN_ORDERS,
+          Permissions.CHARGE_PAYMENTS,
+        ]
+      : []),
   );
   const canManageUsers = hasPermission(Permissions.VIEW_USERS);
   const canViewCatalog = hasAnyPermission(
@@ -91,6 +101,22 @@ export default function DashboardLayout() {
     Permissions.MANAGE_CONTACTS,
   );
   const canViewReports = hasPermission(Permissions.VIEW_REPORTS);
+  const canUseRestaurantOrders =
+    IS_RESTAURANT_VERTICAL &&
+    hasAnyPermission(
+      Permissions.VIEW_ORDERS,
+      Permissions.MANAGE_ORDERS,
+      Permissions.CHARGE_PAYMENTS,
+    );
+  const canViewCashRegister =
+    IS_RESTAURANT_VERTICAL &&
+    hasAnyPermission(
+      Permissions.VIEW_CASH_REGISTER,
+      Permissions.MANAGE_CASH_REGISTER,
+    );
+  const canViewKitchen =
+    IS_RESTAURANT_VERTICAL &&
+    hasAnyPermission(Permissions.VIEW_KITCHEN, Permissions.COMPLETE_KITCHEN_ORDERS);
   const defaultRoute = getDefaultAdminRoute({
     user,
     hasPermission,
@@ -101,6 +127,9 @@ export default function DashboardLayout() {
   // their own label instead of falling through to the dashboard default — which
   // is what exact matching did once creating and editing became pages.
   const BREADCRUMBS: { prefix: string; section: string; page: string }[] = [
+    { prefix: "/dashboard/restaurant/orders", section: "HungerApp", page: "Comanda" },
+    { prefix: "/dashboard/restaurant/cash-register", section: "HungerApp", page: "Caja" },
+    { prefix: "/dashboard/restaurant/kitchen", section: "HungerApp", page: "Cocina" },
     { prefix: "/dashboard/products/new", section: "Tienda", page: "Nuevo producto" },
     { prefix: "/dashboard/products", section: "Tienda", page: "Productos" },
     { prefix: "/dashboard/orders/new", section: "Tienda", page: "Nuevo pedido" },
@@ -148,6 +177,9 @@ export default function DashboardLayout() {
           canViewCoupons={canViewCoupons}
           canViewContacts={canViewContacts}
           canViewReports={canViewReports}
+          canUseRestaurantOrders={canUseRestaurantOrders}
+          canViewCashRegister={canViewCashRegister}
+          canViewKitchen={canViewKitchen}
           setLogoutModalOpen={setLogoutModalOpen}
         />
         <SidebarInset>
@@ -203,7 +235,9 @@ export default function DashboardLayout() {
               />
               <Store className="size-3.5" />
               <span className="hidden sm:inline">
-                {isPublished ? "Tienda en vivo" : "Tienda fuera de línea"}
+                {isPublished
+                  ? IS_RESTAURANT_VERTICAL ? "Menú en vivo" : "Tienda en vivo"
+                  : IS_RESTAURANT_VERTICAL ? "Menú fuera de línea" : "Tienda fuera de línea"}
               </span>
               <ExternalLink className="size-3" />
             </a>

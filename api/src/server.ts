@@ -5,7 +5,7 @@ import type { FastifyCorsOptions } from "@fastify/cors";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
-import { env, isProduction, isTest } from "./config/env.ts";
+import { env, isProduction, isRestaurantVertical, isTest } from "./config/env.ts";
 import { closeDatabase, pool } from "./db/client.ts";
 import { shutdownQueue } from "./jobs/queue.ts";
 import { fail } from "./lib/response.ts";
@@ -25,6 +25,7 @@ import { registerProfileRoutes } from "./routes/profile.ts";
 import { registerPromotionRoutes } from "./routes/promotions.ts";
 import { registerPublicRoutes } from "./routes/public.ts";
 import { registerReportRoutes } from "./routes/reports.ts";
+import { registerRestaurantRoutes } from "./routes/restaurant.ts";
 import { registerUserRoutes } from "./routes/users.ts";
 import { registerWebContentRoutes } from "./routes/web-content.ts";
 
@@ -124,6 +125,7 @@ export async function buildServer() {
   await registerCouponRoutes(app);
   await registerCustomerRoutes(app);
   await registerReportRoutes(app);
+  if (isRestaurantVertical) await registerRestaurantRoutes(app);
   await registerUserRoutes(app);
 
   app.setNotFoundHandler((request, reply) =>

@@ -20,6 +20,9 @@ import CouponsIndex from "../pages/dashboard/coupons/CouponsIndex";
 import ContactsIndex from "../pages/dashboard/contacts/ContactsIndex";
 import ContactDetail from "../pages/dashboard/contacts/ContactDetail";
 import ReportsIndex from "../pages/dashboard/reports/ReportsIndex";
+import CashRegisterIndex from "../pages/restaurant/CashRegisterIndex";
+import KitchenIndex from "../pages/restaurant/KitchenIndex";
+import RestaurantOrdersIndex from "../pages/restaurant/RestaurantOrdersIndex";
 import AuthSignIn from "../pages/auth/AuthSignIn";
 import AuthConfirm from "../pages/auth/AuthConfirm";
 import AuthForgotPassword from "../pages/auth/AuthForgotPassword";
@@ -31,6 +34,7 @@ import ErrorBoundary from "../components/errors/ErrorBoundary";
 import { Permissions } from "../types/auth";
 import { useAuthStore } from "../stores/authStore";
 import { getDefaultAdminRoute } from "../utils/adminRoutes";
+import { IS_RESTAURANT_VERTICAL } from "../config/app";
 
 function RootIndexRedirect() {
   const { user, hasPermission, hasAnyPermission } = useAuthStore();
@@ -42,6 +46,51 @@ function RootIndexRedirect() {
     />
   );
 }
+
+const restaurantRoutes = IS_RESTAURANT_VERTICAL
+  ? [
+      {
+        path: "restaurant/orders",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_ORDERS,
+              Permissions.MANAGE_ORDERS,
+              Permissions.CHARGE_PAYMENTS,
+            ]}
+          >
+            <RestaurantOrdersIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "restaurant/cash-register",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_CASH_REGISTER,
+              Permissions.MANAGE_CASH_REGISTER,
+            ]}
+          >
+            <CashRegisterIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "restaurant/kitchen",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_KITCHEN,
+              Permissions.COMPLETE_KITCHEN_ORDERS,
+            ]}
+          >
+            <KitchenIndex />
+          </ProtectedRoute>
+        ),
+      },
+    ]
+  : [];
 
 // Exportar la variable router para que pueda ser importada directamente
 export const router = createBrowserRouter([
@@ -82,6 +131,7 @@ export const router = createBrowserRouter([
     errorElement: <ErrorBoundary />,
     children: [
       { index: true, element: <Dashboard /> },
+      ...restaurantRoutes,
       {
         path: "users",
         element: (

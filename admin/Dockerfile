@@ -8,8 +8,10 @@ WORKDIR /app
 # talks to have to be known here — setting them at runtime does nothing.
 ARG VITE_API_URL
 ARG VITE_STOREFRONT_URL
+ARG VITE_APP_VERTICAL=store
 ENV VITE_API_URL=$VITE_API_URL \
-    VITE_STOREFRONT_URL=$VITE_STOREFRONT_URL
+    VITE_STOREFRONT_URL=$VITE_STOREFRONT_URL \
+    VITE_APP_VERTICAL=$VITE_APP_VERTICAL
 
 COPY package*.json ./
 RUN bun install

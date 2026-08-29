@@ -32,6 +32,9 @@ const schema = z.object({
   // the better-auth appName. Set it per deployment to rebrand without touching
   // code.
   APP_NAME: z.string().default("R&R Template"),
+  // Product vertical. "store" keeps RyStore as a WhatsApp catalog/checkout;
+  // "restaurant" enables HungerApp modules such as cash register and kitchen.
+  APP_VERTICAL: z.enum(["store", "restaurant"]).default("store"),
 
   ADMIN_FRONTEND_URL: z.string().url().default("http://localhost:5173"),
   ADMIN_ALLOWED_ORIGINS: csv.default("http://localhost:5173"),
@@ -74,3 +77,4 @@ export type Env = typeof env;
 
 export const isProduction = env.NODE_ENV === "production";
 export const isTest = env.NODE_ENV === "test";
+export const isRestaurantVertical = env.APP_VERTICAL === "restaurant";

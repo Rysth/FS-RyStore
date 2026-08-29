@@ -5,6 +5,7 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL}
         VITE_STOREFRONT_URL: ${STOREFRONT_URL:-https://tienda.example.com}
+        VITE_APP_VERTICAL: ${VITE_APP_VERTICAL:-store}
     container_name: ${STACK_NAME:-rystore}-admin
     # No host port published on purpose: Traefik reaches this container over
     # the docker network directly, using the label below. On a VPS shared
@@ -19,6 +20,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_URL=${VITE_API_URL}
       - VITE_STOREFRONT_URL=${STOREFRONT_URL:-https://tienda.example.com}
+      - VITE_APP_VERTICAL=${VITE_APP_VERTICAL:-store}
       - ADMIN_SERVER_NAME=${ADMIN_SERVER_NAME:-admin.example.com}
       - API_UPSTREAM_SCHEME=${API_UPSTREAM_SCHEME:-https}
       - API_UPSTREAM_HOST=${API_UPSTREAM_HOST:-api.example.com}
@@ -56,6 +58,7 @@ services:
       - PUBLIC_API_URL=${PUBLIC_API_URL:-https://api.example.com}
       - "DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
       - "APP_NAME=${APP_NAME:-R&R Template}"
+      - APP_VERTICAL=${APP_VERTICAL:-store}
       - CLOUDFLARE_ENDPOINT=${CLOUDFLARE_ENDPOINT}
       - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
       - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
@@ -108,6 +111,7 @@ services:
       - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-https://admin.example.com}
       - "DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
       - "APP_NAME=${APP_NAME:-R&R Template}"
+      - APP_VERTICAL=${APP_VERTICAL:-store}
       - CLOUDFLARE_ENDPOINT=${CLOUDFLARE_ENDPOINT}
       - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
       - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
@@ -147,6 +151,7 @@ services:
       args:
         PUBLIC_API_URL: ${PUBLIC_API_URL:-https://api.example.com}
         STOREFRONT_URL: ${STOREFRONT_URL:-https://tienda.example.com}
+        PUBLIC_APP_VERTICAL: ${PUBLIC_APP_VERTICAL:-store}
     container_name: ${STACK_NAME:-rystore}-storefront
     environment:
       - TZ=America/Guayaquil
@@ -161,6 +166,7 @@ services:
       # served from someone else's API.
       - API_INTERNAL_URL=${API_INTERNAL_URL:-http://rystore-api:3000}
       - PUBLIC_API_URL=${PUBLIC_API_URL:-https://api.example.com}
+      - PUBLIC_APP_VERTICAL=${PUBLIC_APP_VERTICAL:-store}
     depends_on:
       api:
         condition: service_healthy

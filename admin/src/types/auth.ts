@@ -56,6 +56,14 @@ export const Permissions = {
 	VIEW_CONTACTS: "view_contacts",
 	MANAGE_CONTACTS: "manage_contacts",
 	VIEW_REPORTS: "view_reports",
+	VIEW_CASH_REGISTER: "view_cash_register",
+	MANAGE_CASH_REGISTER: "manage_cash_register",
+	DELIVER_ORDERS: "deliver_orders",
+	VIEW_KITCHEN: "view_kitchen",
+	COMPLETE_KITCHEN_ORDERS: "complete_kitchen_orders",
+	CHARGE_PAYMENTS: "charge_payments",
+	VOID_PAYMENTS: "void_payments",
+	VIEW_KITCHEN_METRICS: "view_kitchen_metrics",
 } as const;
 
 export type PermissionKey = (typeof Permissions)[keyof typeof Permissions];

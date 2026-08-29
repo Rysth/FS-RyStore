@@ -16,6 +16,9 @@ import {
   Contact,
   BarChart3,
   Globe2,
+  ChefHat,
+  CircleDollarSign,
+  ClipboardList,
 } from "lucide-react";
 import {
   Sidebar,
@@ -50,6 +53,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useBusinessStore } from "../../stores/businessStore";
 import type { User } from "../../types/auth";
+import { IS_RESTAURANT_VERTICAL } from "../../config/app";
 import logo from "../../assets/logo.svg";
 
 interface AppSidebarProps {
@@ -60,6 +64,9 @@ interface AppSidebarProps {
   canViewCoupons: boolean;
   canViewContacts: boolean;
   canViewReports: boolean;
+  canUseRestaurantOrders: boolean;
+  canViewCashRegister: boolean;
+  canViewKitchen: boolean;
   setLogoutModalOpen: (open: boolean) => void;
 }
 
@@ -86,6 +93,9 @@ export default function AppSidebar({
   canViewCoupons,
   canViewContacts,
   canViewReports,
+  canUseRestaurantOrders,
+  canViewCashRegister,
+  canViewKitchen,
   setLogoutModalOpen,
 }: AppSidebarProps) {
   // Fetch business data so we can show logo + name (cached in store)
@@ -173,7 +183,7 @@ export default function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {canViewOrders ? (
+              {canViewOrders && !IS_RESTAURANT_VERTICAL ? (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -191,6 +201,64 @@ export default function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {IS_RESTAURANT_VERTICAL &&
+          (canUseRestaurantOrders || canViewCashRegister || canViewKitchen) && (
+            <SidebarGroup>
+              <SidebarGroupLabel>HungerApp</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {canUseRestaurantOrders ? (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip="Comanda"
+                        isActive={isActiveRoute("/dashboard/restaurant/orders")}
+                        className={activeMenuClasses}
+                      >
+                        <NavLink to="/dashboard/restaurant/orders">
+                          <ClipboardList />
+                          <span>Comanda</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ) : null}
+
+                  {canViewCashRegister ? (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip="Caja"
+                        isActive={isActiveRoute("/dashboard/restaurant/cash-register")}
+                        className={activeMenuClasses}
+                      >
+                        <NavLink to="/dashboard/restaurant/cash-register">
+                          <CircleDollarSign />
+                          <span>Caja</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ) : null}
+
+                  {canViewKitchen ? (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip="Cocina"
+                        isActive={isActiveRoute("/dashboard/restaurant/kitchen")}
+                        className={activeMenuClasses}
+                      >
+                        <NavLink to="/dashboard/restaurant/kitchen">
+                          <ChefHat />
+                          <span>Cocina</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ) : null}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
 
         {/* Catálogo groups everything that shapes what's for sale — products,
             categories, and the discount codes that apply to them — so the flat

@@ -11,6 +11,7 @@ import {
     fetchSettings,
 } from "../lib/api";
 import { filtersFromQuery } from "../lib/catalogFilters";
+import { IS_RESTAURANT_VERTICAL } from "../lib/vertical";
 import type {
     Pagination,
     StoreCategory,
@@ -99,7 +100,9 @@ const pageTitle = activeCategory
     ? activeCategory.name
     : filters.search
       ? `Resultados para "${filters.search}"`
-      : "Catálogo";
+      : IS_RESTAURANT_VERTICAL
+        ? "Menú"
+        : "Catálogo";
 
 // Combos are the shop's own selection, so they lead the page — but only on the
 // unfiltered catalog. Once the buyer is searching or has picked a category they
@@ -137,13 +140,17 @@ const showPromotions =
                             ? activeCategory.name
                             : filters.search
                               ? `Resultados para "${filters.search}"`
-                              : "Catálogo"}
+                              : IS_RESTAURANT_VERTICAL
+                                ? "Menú"
+                                : "Catálogo"}
                     </h1>
 
                     {showPromotions && (
                         <section id="combos" class="mb-7 scroll-mt-20">
                             <div class="mb-3 flex items-baseline justify-between gap-3">
-                                <h2 class="text-lg font-bold">Ofertas</h2>
+                                <h2 class="text-lg font-bold">
+                                    {IS_RESTAURANT_VERTICAL ? "Combos" : "Ofertas"}
+                                </h2>
                                 <p class="hidden text-xs text-muted-foreground sm:block">
                                     Toca uno y mira qué trae
                                 </p>

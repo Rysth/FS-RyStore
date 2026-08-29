@@ -7,8 +7,10 @@ WORKDIR /app
 # origin the browser talks to must be known here.
 ARG PUBLIC_API_URL
 ARG STOREFRONT_URL
+ARG PUBLIC_APP_VERTICAL=store
 ENV PUBLIC_API_URL=$PUBLIC_API_URL \
-    STOREFRONT_URL=$STOREFRONT_URL
+    STOREFRONT_URL=$STOREFRONT_URL \
+    PUBLIC_APP_VERTICAL=$PUBLIC_APP_VERTICAL
 
 COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile

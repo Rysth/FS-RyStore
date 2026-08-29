@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly PUBLIC_API_URL: string;
   /** Canonical storefront origin, used for canonical/OG URLs and the sitemap. */
   readonly STOREFRONT_URL: string;
+  /** Public product vertical. "restaurant" enables menu/self-order surfaces. */
+  readonly PUBLIC_APP_VERTICAL?: "store" | "restaurant";
 }
 
 interface ImportMeta {
