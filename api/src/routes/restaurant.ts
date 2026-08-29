@@ -11,6 +11,15 @@ import {
   openCashRegister,
   serializeCashRegister,
 } from "../services/restaurant/cash-registers.ts";
+import {
+  createPaidRestaurantOrder,
+  deliverRestaurantOrder,
+  kitchenQueue,
+  listRestaurantOrders,
+  markKitchenOrderReady,
+  serializeKitchenOrder,
+  serializeRestaurantOrder,
+} from "../services/restaurant/orders.ts";
 
 const openCashRegisterSchema = z.object({
   opening_amount: z.string().trim().default("0.00"),
@@ -19,6 +28,26 @@ const openCashRegisterSchema = z.object({
 const closeCashRegisterSchema = z.object({
   closing_amount: z.string().trim(),
   notes: z.string().trim().optional(),
+});
+
+const orderItemSchema = z.object({
+  product_id: z.coerce.number().int().positive("Producto inválido"),
+  quantity: z.coerce.number().int().positive("La cantidad debe ser mayor a 0"),
+  removed_ingredients: z.array(z.string()).default([]),
+  extras: z.array(z.object({
+    name: z.string().trim().min(1, "El nombre del adicional es requerido"),
+    price: z.string().trim().min(1, "El precio del adicional es requerido"),
+  })).default([]),
+  notes: z.string().trim().nullish(),
+});
+
+const createRestaurantOrderSchema = z.object({
+  customer_name: z.string().trim().min(1, "El nombre del cliente es requerido").max(60, "El nombre del cliente no puede superar 60 caracteres"),
+  channel: z.enum(["local", "whatsapp", "rappi", "pedidosya", "self_order"]).default("local"),
+  payment_method: z.enum(["cash", "transfer", "card", "platform"]).default("cash"),
+  received_amount: z.string().trim().nullish(),
+  reference: z.string().trim().nullish(),
+  items: z.array(orderItemSchema).min(1, "Agrega al menos un producto").max(50, "No puedes agregar más de 50 productos en un pedido"),
 });
 
 export async function registerRestaurantRoutes(app: FastifyInstance): Promise<void> {
@@ -34,6 +63,21 @@ export async function registerRestaurantRoutes(app: FastifyInstance): Promise<vo
     PERMISSION_KEYS.MANAGE_CASH_REGISTER,
   );
   const canManageCashRegister = requirePermission(PERMISSION_KEYS.MANAGE_CASH_REGISTER);
+  const canUseRestaurantOrders = requirePermission(
+    PERMISSION_KEYS.MANAGE_ORDERS,
+    PERMISSION_KEYS.CHARGE_PAYMENTS,
+  );
+  const canReadRestaurantOrders = requirePermission(
+    PERMISSION_KEYS.VIEW_ORDERS,
+    PERMISSION_KEYS.MANAGE_ORDERS,
+    PERMISSION_KEYS.CHARGE_PAYMENTS,
+  );
+  const canViewKitchen = requirePermission(
+    PERMISSION_KEYS.VIEW_KITCHEN,
+    PERMISSION_KEYS.COMPLETE_KITCHEN_ORDERS,
+  );
+  const canCompleteKitchen = requirePermission(PERMISSION_KEYS.COMPLETE_KITCHEN_ORDERS);
+  const canDeliverOrders = requirePermission(PERMISSION_KEYS.DELIVER_ORDERS);
 
   app.get("/api/v1/restaurant/status", { preHandler: canOpenRestaurant }, async (_request, reply) => {
     const current = await findOpenCashRegister();
@@ -91,6 +135,62 @@ export async function registerRestaurantRoutes(app: FastifyInstance): Promise<vo
 
     return ok(reply, { cash_register: serializeCashRegister(result.value) }, {
       message: "Caja cerrada correctamente",
+    });
+  });
+
+  app.get("/api/v1/restaurant/orders", { preHandler: canReadRestaurantOrders }, async (_request, reply) => {
+    const rows = await listRestaurantOrders();
+    return ok(reply, { orders: rows.map(serializeRestaurantOrder) });
+  });
+
+  app.post("/api/v1/restaurant/orders", { preHandler: canUseRestaurantOrders }, async (request, reply) => {
+    const values = parseOrFail(createRestaurantOrderSchema, request.body ?? {}, reply);
+    if (!values) return reply;
+
+    const result = await createPaidRestaurantOrder({
+      userId: request.session!.userId,
+      customerName: values.customer_name,
+      channel: values.channel,
+      paymentMethod: values.payment_method,
+      receivedAmount: values.received_amount ?? null,
+      reference: values.reference ?? null,
+      items: values.items,
+    });
+
+    if (!result.success) return fail(reply, "No se pudo registrar el pedido", 422, { errors: result.errors });
+
+    return ok(reply, { order: serializeRestaurantOrder(result.value) }, {
+      message: "Pedido enviado a cocina correctamente",
+      statusCode: 201,
+    });
+  });
+
+  app.get("/api/v1/restaurant/kitchen/orders", { preHandler: canViewKitchen }, async (_request, reply) => {
+    const rows = await kitchenQueue();
+    return ok(reply, { orders: rows.map(serializeKitchenOrder) });
+  });
+
+  app.post("/api/v1/restaurant/kitchen/orders/:id/ready", { preHandler: canCompleteKitchen }, async (request, reply) => {
+    const id = Number((request.params as { id: string }).id);
+    if (!Number.isInteger(id)) return fail(reply, "Pedido no encontrado", 404, { error: "not_found" });
+
+    const result = await markKitchenOrderReady(id);
+    if (!result.success) return fail(reply, "No se pudo marcar el pedido como listo", 422, { errors: result.errors });
+
+    return ok(reply, { order: serializeKitchenOrder(result.value) }, {
+      message: "Pedido marcado como listo",
+    });
+  });
+
+  app.post("/api/v1/restaurant/orders/:id/deliver", { preHandler: canDeliverOrders }, async (request, reply) => {
+    const id = Number((request.params as { id: string }).id);
+    if (!Number.isInteger(id)) return fail(reply, "Pedido no encontrado", 404, { error: "not_found" });
+
+    const result = await deliverRestaurantOrder(id);
+    if (!result.success) return fail(reply, "No se pudo entregar el pedido", 422, { errors: result.errors });
+
+    return ok(reply, { order: serializeRestaurantOrder(result.value) }, {
+      message: "Pedido entregado correctamente",
     });
   });
 
