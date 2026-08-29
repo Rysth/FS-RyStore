@@ -9,6 +9,7 @@ import { env, isProduction, isTest } from "./config/env.ts";
 import { closeDatabase, pool } from "./db/client.ts";
 import { shutdownQueue } from "./jobs/queue.ts";
 import { fail } from "./lib/response.ts";
+import { localObjectPath, streamLocalObject } from "./lib/storage.ts";
 import { RATE_LIMITS } from "./middleware/rate-limit.ts";
 import { registerAuthRoutes } from "./routes/auth.ts";
 import { registerBusinessRoutes } from "./routes/businesses.ts";
@@ -100,6 +101,14 @@ export async function buildServer() {
   // /users) are declared on the routes themselves — see middleware/rate-limit.ts.
   await app.register(rateLimit, { global: true, ...RATE_LIMITS.global });
 
+  app.get("/uploads/*", async (request, reply) => {
+    const rawKey = (request.params as { "*"?: string })["*"] ?? "";
+    const filePath = await localObjectPath(decodeURIComponent(rawKey));
+    if (!filePath) return fail(reply, "Archivo no encontrado", 404, { error: "not_found" });
+
+    return reply.type(contentTypeFor(filePath)).send(streamLocalObject(filePath));
+  });
+
   await registerAuthRoutes(app);
   await registerPublicRoutes(app);
   await registerMeRoutes(app);
@@ -155,6 +164,18 @@ export async function buildServer() {
   });
 
   return app;
+}
+
+function contentTypeFor(filePath: string): string {
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith(".pdf")) return "application/pdf";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".mp4")) return "video/mp4";
+  if (lower.endsWith(".webm")) return "video/webm";
+  if (lower.endsWith(".mov")) return "video/quicktime";
+  return "application/octet-stream";
 }
 
 const isEntrypoint = process.argv[1] && import.meta.filename === process.argv[1];

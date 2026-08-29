@@ -1,6 +1,9 @@
 import { randomBytes } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { mkdir, stat, unlink, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { env } from "../config/env.ts";
+import { env, isProduction } from "../config/env.ts";
 import { IMAGE_CONTENT_TYPES, isOptimizable, optimizeImage } from "./images.ts";
 import type { ImagePurpose } from "./images.ts";
 
@@ -26,13 +29,34 @@ export const STORAGE_ERRORS = {
   unconfigured: "El almacenamiento de archivos no está configurado en este servidor",
 } as const;
 
-export function isStorageConfigured(): boolean {
+const LOCAL_UPLOAD_ROOT = path.resolve(process.cwd(), "uploads");
+
+export function isCloudflareStorageConfigured(): boolean {
+  const values = [
+    env.CLOUDFLARE_ENDPOINT,
+    env.CLOUDFLARE_ACCESS_KEY_ID,
+    env.CLOUDFLARE_SECRET_ACCESS_KEY,
+    env.CLOUDFLARE_BUCKET_NAME,
+  ];
+
+  if (values.some((value) => !value || value.startsWith("your_") || value.includes("your-account-id"))) {
+    return false;
+  }
+
   return Boolean(
     env.CLOUDFLARE_ENDPOINT &&
       env.CLOUDFLARE_ACCESS_KEY_ID &&
       env.CLOUDFLARE_SECRET_ACCESS_KEY &&
       env.CLOUDFLARE_BUCKET_NAME,
   );
+}
+
+export function useLocalStorage(): boolean {
+  return !isProduction && !isCloudflareStorageConfigured();
+}
+
+export function isStorageConfigured(): boolean {
+  return useLocalStorage() || isCloudflareStorageConfigured();
 }
 
 let client: S3Client | null = null;
@@ -72,6 +96,11 @@ export function buildLogoKey(businessId: number, filename: string): string {
 export async function uploadLogo(businessId: number, upload: LogoUpload): Promise<string> {
   const key = buildLogoKey(businessId, upload.filename);
 
+  if (useLocalStorage()) {
+    await writeLocalObject(key, upload.buffer);
+    return key;
+  }
+
   await getClient().send(
     new PutObjectCommand({
       Bucket: env.CLOUDFLARE_BUCKET_NAME!,
@@ -85,6 +114,11 @@ export async function uploadLogo(businessId: number, upload: LogoUpload): Promis
 }
 
 export async function deleteObject(key: string): Promise<void> {
+  if (useLocalStorage()) {
+    await deleteLocalObject(key);
+    return;
+  }
+
   await getClient().send(
     new DeleteObjectCommand({ Bucket: env.CLOUDFLARE_BUCKET_NAME!, Key: key }),
   );
@@ -146,6 +180,11 @@ export async function uploadAsset(upload: AssetUpload, target: AssetTarget): Pro
 
   const key = buildAssetKey(target.folder, target.prefix, extension);
 
+  if (useLocalStorage()) {
+    await writeLocalObject(key, body);
+    return key;
+  }
+
   await getClient().send(
     new PutObjectCommand({
       Bucket: env.CLOUDFLARE_BUCKET_NAME!,
@@ -170,4 +209,38 @@ export async function deleteObjectQuietly(key: string | null | undefined): Promi
   } catch {
     // Orphaned object in the bucket; not worth failing the request over.
   }
+}
+
+export async function localObjectPath(key: string): Promise<string | null> {
+  if (!useLocalStorage()) return null;
+
+  const resolved = path.resolve(LOCAL_UPLOAD_ROOT, key);
+  if (!resolved.startsWith(`${LOCAL_UPLOAD_ROOT}${path.sep}`)) return null;
+
+  const info = await stat(resolved).catch(() => null);
+  if (!info?.isFile()) return null;
+
+  return resolved;
+}
+
+function safeLocalPath(key: string): string {
+  const resolved = path.resolve(LOCAL_UPLOAD_ROOT, key);
+  if (!resolved.startsWith(`${LOCAL_UPLOAD_ROOT}${path.sep}`)) {
+    throw new Error("Ruta de archivo inválida");
+  }
+  return resolved;
+}
+
+async function writeLocalObject(key: string, body: Buffer): Promise<void> {
+  const filePath = safeLocalPath(key);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, body);
+}
+
+async function deleteLocalObject(key: string): Promise<void> {
+  await unlink(safeLocalPath(key));
+}
+
+export function streamLocalObject(filePath: string) {
+  return createReadStream(filePath);
 }
