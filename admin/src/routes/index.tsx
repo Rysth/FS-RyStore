@@ -99,6 +99,24 @@ export const router = createBrowserRouter([
     element: <RootIndexRedirect />,
     errorElement: <ErrorBoundary />,
   },
+  ...(IS_RESTAURANT_VERTICAL
+    ? [
+        {
+          path: "kitchen",
+          element: (
+            <ProtectedRoute
+              requiredPermission={[
+                Permissions.VIEW_KITCHEN,
+                Permissions.COMPLETE_KITCHEN_ORDERS,
+              ]}
+            >
+              <KitchenIndex kiosk />
+            </ProtectedRoute>
+          ),
+          errorElement: <ErrorBoundary />,
+        },
+      ]
+    : []),
   {
     path: "auth",
     element: <AuthLayout />,

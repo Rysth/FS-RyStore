@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
+import { useAuthStore } from "../../stores/authStore";
 import { useRestaurantKitchenStore } from "../../stores/restaurantKitchenStore";
 
 const CHANNEL_LABELS: Record<string, string> = {
@@ -11,8 +12,13 @@ const CHANNEL_LABELS: Record<string, string> = {
   self_order: "Autoservicio",
 };
 
-export default function KitchenIndex() {
+interface Props {
+  kiosk?: boolean;
+}
+
+export default function KitchenIndex({ kiosk = false }: Props) {
   const { orders, isLoading, error, fetchOrders, markReady } = useRestaurantKitchenStore();
+  const { logout } = useAuthStore();
 
   useEffect(() => {
     fetchOrders().catch(() => undefined);
@@ -31,15 +37,28 @@ export default function KitchenIndex() {
     }
   }
 
+  async function handleLogout() {
+    await logout();
+  }
+
   return (
-    <section className="space-y-4">
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">HungerApp</p>
-        <h1 className="text-2xl font-bold tracking-tight">Cocina</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Pantalla de cocina para TV: pedidos grandes, sin precios, sin métricas
-          visibles y botón LISTO con refresco por polling.
-        </p>
+    <section className={kiosk ? "min-h-screen space-y-5 bg-background p-4 md:p-6" : "space-y-4"}>
+      <div className={kiosk ? "flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4" : undefined}>
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">HungerApp</p>
+          <h1 className={kiosk ? "text-4xl font-black tracking-tight" : "text-2xl font-bold tracking-tight"}>
+            Cocina
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Pantalla de cocina para TV: pedidos grandes, sin precios, sin métricas
+            visibles y botón LISTO con refresco por polling.
+          </p>
+        </div>
+        {kiosk ? (
+          <Button type="button" variant="outline" onClick={handleLogout}>
+            Cerrar sesión
+          </Button>
+        ) : null}
       </div>
 
       {error ? (
@@ -60,11 +79,11 @@ export default function KitchenIndex() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className={kiosk ? "grid gap-5 md:grid-cols-2 2xl:grid-cols-4" : "grid gap-4 md:grid-cols-2 xl:grid-cols-3"}>
           {orders.map((order) => (
             <article
               key={order.id}
-              className={`rounded-2xl border p-5 shadow-sm ${
+              className={`rounded-2xl border shadow-sm ${kiosk ? "p-6" : "p-5"} ${
                 order.status === "ready"
                   ? "border-emerald-500/40 bg-emerald-500/10"
                   : "border-border bg-card"
@@ -72,8 +91,12 @@ export default function KitchenIndex() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-3xl font-black tabular-nums">#{order.number}</p>
-                  <p className="mt-1 text-lg font-semibold">{order.customer_name}</p>
+                  <p className={kiosk ? "text-5xl font-black tabular-nums" : "text-3xl font-black tabular-nums"}>
+                    #{order.number}
+                  </p>
+                  <p className={kiosk ? "mt-2 text-2xl font-bold" : "mt-1 text-lg font-semibold"}>
+                    {order.customer_name}
+                  </p>
                 </div>
                 <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
                   {CHANNEL_LABELS[order.channel] ?? order.channel}
@@ -83,7 +106,7 @@ export default function KitchenIndex() {
               <ul className="mt-5 space-y-4">
                 {order.items.map((item) => (
                   <li key={item.id} className="rounded-xl bg-background/70 p-4">
-                    <p className="text-lg font-bold">
+                    <p className={kiosk ? "text-2xl font-black" : "text-lg font-bold"}>
                       {item.quantity} x {item.product_name}
                     </p>
                     {item.removed_ingredients.length > 0 ? (

@@ -41,7 +41,7 @@ export function getDefaultAdminRoute({
     IS_RESTAURANT_VERTICAL &&
     hasAnyPermission(Permissions.VIEW_KITCHEN, Permissions.COMPLETE_KITCHEN_ORDERS)
   ) {
-    return "/dashboard/restaurant/kitchen";
+    return "/kitchen";
   }
 
   if (hasAnyPermission(Permissions.VIEW_CATALOG, Permissions.MANAGE_CATALOG)) {

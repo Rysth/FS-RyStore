@@ -117,6 +117,25 @@ export default function DashboardLayout() {
   const canViewKitchen =
     IS_RESTAURANT_VERTICAL &&
     hasAnyPermission(Permissions.VIEW_KITCHEN, Permissions.COMPLETE_KITCHEN_ORDERS);
+  const hasKitchenOnlyAccess =
+    canViewKitchen &&
+    !hasAnyPermission(
+      Permissions.VIEW_DASHBOARD,
+      Permissions.VIEW_USERS,
+      Permissions.VIEW_BUSINESS,
+      Permissions.EDIT_PROFILE,
+      Permissions.VIEW_CATALOG,
+      Permissions.MANAGE_CATALOG,
+      Permissions.VIEW_ORDERS,
+      Permissions.MANAGE_ORDERS,
+      Permissions.DELIVER_ORDERS,
+      Permissions.VIEW_CASH_REGISTER,
+      Permissions.MANAGE_CASH_REGISTER,
+      Permissions.CHARGE_PAYMENTS,
+      Permissions.VIEW_COUPONS,
+      Permissions.VIEW_CONTACTS,
+      Permissions.VIEW_REPORTS,
+    );
   const defaultRoute = getDefaultAdminRoute({
     user,
     hasPermission,
@@ -164,6 +183,10 @@ export default function DashboardLayout() {
 
   if (!hasAccess) {
     return <Navigate to={defaultRoute} replace />;
+  }
+
+  if (hasKitchenOnlyAccess) {
+    return <Navigate to="/kitchen" replace />;
   }
 
   return (
