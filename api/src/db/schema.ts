@@ -4,6 +4,7 @@ import {
   bigserial,
   boolean,
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -367,6 +368,8 @@ export const products = pgTable(
     stock: integer("stock"),
     // [{ name: "Talla", values: ["S", "M"] }] — the axes a variant must define.
     optionTypes: jsonb("option_types").notNull().default([]),
+    // Restaurant vertical: the removable defaults that become "Sin ___" buttons.
+    defaultIngredients: jsonb("default_ingredients").notNull().default([]),
     kind: text("kind").notNull().default("product"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -649,6 +652,173 @@ export const orderItems = pgTable(
 );
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * Restaurant domain (HungerApp)
+ *
+ * Kept separate from the storefront checkout tables on purpose: a restaurant
+ * order has operational state (cash register, kitchen, payments, prep time)
+ * that would turn the ecommerce order into a bag of nullable columns.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const cashRegisters = pgTable(
+  "cash_registers",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    status: text("status").notNull().default("open"),
+    businessDate: date("business_date").notNull(),
+    openedBy: text("opened_by").notNull().references(() => users.id),
+    openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+    closedBy: text("closed_by").references(() => users.id),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    openingAmount: numeric("opening_amount", { precision: 10, scale: 2 }).notNull().default("0.0"),
+    closingAmount: numeric("closing_amount", { precision: 10, scale: 2 }),
+    expectedCash: numeric("expected_cash", { precision: 10, scale: 2 }),
+    cashTotal: numeric("cash_total", { precision: 10, scale: 2 }),
+    transferTotal: numeric("transfer_total", { precision: 10, scale: 2 }),
+    cardTotal: numeric("card_total", { precision: 10, scale: 2 }),
+    platformTotal: numeric("platform_total", { precision: 10, scale: 2 }),
+    totalSales: numeric("total_sales", { precision: 10, scale: 2 }),
+    difference: numeric("difference", { precision: 10, scale: 2 }),
+    ordersCount: integer("orders_count"),
+    ordersPaidCount: integer("orders_paid_count"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("cash_registers_single_open_unique").on(table.status).where(sql`${table.status} = 'open'`),
+    index("cash_registers_business_date_idx").on(table.businessDate),
+    check("cash_registers_status_valid", sql`${table.status} in ('open', 'closed')`),
+    check("cash_registers_opening_amount_non_negative", sql`${table.openingAmount} >= 0`),
+    check("cash_registers_closing_amount_non_negative", sql`${table.closingAmount} is null or ${table.closingAmount} >= 0`),
+    check("cash_registers_closed_fields_present", sql`${table.status} <> 'closed' or (${table.closedBy} is not null and ${table.closedAt} is not null and ${table.closingAmount} is not null and ${table.expectedCash} is not null and ${table.cashTotal} is not null and ${table.transferTotal} is not null and ${table.totalSales} is not null and ${table.difference} is not null)`),
+  ],
+);
+
+export const restaurantOrders = pgTable(
+  "restaurant_orders",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    number: integer("number"),
+    businessDate: date("business_date"),
+    customerName: varchar("customer_name", { length: 60 }).notNull(),
+    channel: text("channel").notNull().default("local"),
+    status: text("status").notNull().default("draft"),
+    paymentStatus: text("payment_status").notNull().default("pending"),
+    totalAmount: numeric("total_amount", { precision: 10, scale: 2 }).notNull().default("0.0"),
+    paidAmount: numeric("paid_amount", { precision: 10, scale: 2 }).notNull().default("0.0"),
+    balanceAmount: numeric("balance_amount", { precision: 10, scale: 2 }).notNull().default("0.0"),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    readyAt: timestamp("ready_at", { withTimezone: true }),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    prepSeconds: integer("prep_seconds"),
+    deliverySeconds: integer("delivery_seconds"),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledBy: text("cancelled_by").references(() => users.id),
+    cancelReason: text("cancel_reason"),
+    cashRegisterId: bigint("cash_register_id", { mode: "number" }).references(() => cashRegisters.id),
+    userId: text("user_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("restaurant_orders_business_date_number_unique")
+      .on(table.businessDate, table.number)
+      .where(sql`${table.businessDate} is not null and ${table.number} is not null`),
+    index("restaurant_orders_status_idx").on(table.status),
+    index("restaurant_orders_payment_status_idx").on(table.paymentStatus),
+    index("restaurant_orders_cash_register_id_idx").on(table.cashRegisterId),
+    check("restaurant_orders_channel_valid", sql`${table.channel} in ('local', 'whatsapp', 'rappi', 'pedidosya', 'self_order')`),
+    check("restaurant_orders_status_valid", sql`${table.status} in ('draft', 'preparing', 'ready', 'delivered', 'cancelled')`),
+    check("restaurant_orders_payment_status_valid", sql`${table.paymentStatus} in ('pending', 'partially_paid', 'paid')`),
+    check("restaurant_orders_customer_name_present", sql`length(trim(${table.customerName})) between 1 and 60`),
+    check("restaurant_orders_amounts_consistent", sql`${table.totalAmount} >= 0 and ${table.paidAmount} >= 0 and ${table.balanceAmount} >= 0 and ${table.balanceAmount} = ${table.totalAmount} - ${table.paidAmount}`),
+    check("restaurant_orders_confirmed_fields_present", sql`${table.status} = 'draft' or (${table.number} is not null and ${table.businessDate} is not null and ${table.confirmedAt} is not null and ${table.cashRegisterId} is not null)`),
+    check("restaurant_orders_ready_after_confirmed", sql`${table.readyAt} is null or ${table.confirmedAt} is not null`),
+    check("restaurant_orders_delivered_after_ready", sql`${table.deliveredAt} is null or ${table.readyAt} is not null`),
+    check("restaurant_orders_cancelled_fields_present", sql`${table.status} <> 'cancelled' or (${table.cancelledAt} is not null and ${table.cancelledBy} is not null and length(trim(${table.cancelReason})) > 0)`),
+  ],
+);
+
+export const restaurantOrderItems = pgTable(
+  "restaurant_order_items",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    orderId: bigint("order_id", { mode: "number" })
+      .notNull()
+      .references(() => restaurantOrders.id, { onDelete: "cascade" }),
+    productId: bigint("product_id", { mode: "number" }).references(() => products.id),
+    productName: text("product_name").notNull(),
+    unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull().default("0.0"),
+    quantity: integer("quantity").notNull().default(1),
+    removedIngredients: jsonb("removed_ingredients").notNull().default([]),
+    extras: jsonb("extras").notNull().default([]),
+    extrasTotal: numeric("extras_total", { precision: 10, scale: 2 }).notNull().default("0.0"),
+    subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull().default("0.0"),
+    notes: text("notes"),
+    paymentStatus: text("payment_status").notNull().default("pending"),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("restaurant_order_items_order_id_idx").on(table.orderId),
+    index("restaurant_order_items_product_id_idx").on(table.productId),
+    check("restaurant_order_items_quantity_positive", sql`${table.quantity} > 0`),
+    check("restaurant_order_items_payment_status_valid", sql`${table.paymentStatus} in ('pending', 'paid')`),
+    check("restaurant_order_items_amounts_non_negative", sql`${table.unitPrice} >= 0 and ${table.extrasTotal} >= 0 and ${table.subtotal} >= 0`),
+  ],
+);
+
+export const payments = pgTable(
+  "payments",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    orderId: bigint("order_id", { mode: "number" })
+      .notNull()
+      .references(() => restaurantOrders.id),
+    cashRegisterId: bigint("cash_register_id", { mode: "number" })
+      .notNull()
+      .references(() => cashRegisters.id),
+    userId: text("user_id").notNull().references(() => users.id),
+    paymentMethod: text("payment_method").notNull(),
+    amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+    receivedAmount: numeric("received_amount", { precision: 10, scale: 2 }),
+    reference: text("reference"),
+    receiptKey: text("receipt_key"),
+    paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("payments_order_id_idx").on(table.orderId),
+    index("payments_cash_register_id_idx").on(table.cashRegisterId),
+    check("payments_method_valid", sql`${table.paymentMethod} in ('cash', 'transfer', 'card', 'platform')`),
+    check("payments_amount_positive", sql`${table.amount} > 0`),
+    check("payments_received_amount_valid", sql`(${table.paymentMethod} = 'cash' and (${table.receivedAmount} is null or ${table.receivedAmount} >= ${table.amount})) or (${table.paymentMethod} <> 'cash' and ${table.receivedAmount} is null)`),
+  ],
+);
+
+export const paymentItems = pgTable(
+  "payment_items",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    paymentId: bigint("payment_id", { mode: "number" })
+      .notNull()
+      .references(() => payments.id, { onDelete: "cascade" }),
+    orderItemId: bigint("order_item_id", { mode: "number" })
+      .notNull()
+      .references(() => restaurantOrderItems.id),
+    amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("payment_items_order_item_id_unique").on(table.orderItemId),
+    index("payment_items_payment_id_idx").on(table.paymentId),
+    check("payment_items_amount_positive", sql`${table.amount} > 0`),
+  ],
+);
+
+/* ────────────────────────────────────────────────────────────────────────────
  * Relations
  * ──────────────────────────────────────────────────────────────────────────── */
 
@@ -749,6 +919,51 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   promotion: one(promotions, { fields: [orderItems.promotionId], references: [promotions.id] }),
 }));
 
+export const cashRegistersRelations = relations(cashRegisters, ({ one, many }) => ({
+  openedByUser: one(users, { fields: [cashRegisters.openedBy], references: [users.id] }),
+  closedByUser: one(users, { fields: [cashRegisters.closedBy], references: [users.id] }),
+  orders: many(restaurantOrders),
+  payments: many(payments),
+}));
+
+export const restaurantOrdersRelations = relations(restaurantOrders, ({ one, many }) => ({
+  cashRegister: one(cashRegisters, {
+    fields: [restaurantOrders.cashRegisterId],
+    references: [cashRegisters.id],
+  }),
+  user: one(users, { fields: [restaurantOrders.userId], references: [users.id] }),
+  cancelledByUser: one(users, { fields: [restaurantOrders.cancelledBy], references: [users.id] }),
+  items: many(restaurantOrderItems),
+  payments: many(payments),
+}));
+
+export const restaurantOrderItemsRelations = relations(restaurantOrderItems, ({ one, many }) => ({
+  order: one(restaurantOrders, {
+    fields: [restaurantOrderItems.orderId],
+    references: [restaurantOrders.id],
+  }),
+  product: one(products, { fields: [restaurantOrderItems.productId], references: [products.id] }),
+  paymentItems: many(paymentItems),
+}));
+
+export const paymentsRelations = relations(payments, ({ one, many }) => ({
+  order: one(restaurantOrders, { fields: [payments.orderId], references: [restaurantOrders.id] }),
+  cashRegister: one(cashRegisters, {
+    fields: [payments.cashRegisterId],
+    references: [cashRegisters.id],
+  }),
+  user: one(users, { fields: [payments.userId], references: [users.id] }),
+  items: many(paymentItems),
+}));
+
+export const paymentItemsRelations = relations(paymentItems, ({ one }) => ({
+  payment: one(payments, { fields: [paymentItems.paymentId], references: [payments.id] }),
+  orderItem: one(restaurantOrderItems, {
+    fields: [paymentItems.orderItemId],
+    references: [restaurantOrderItems.id],
+  }),
+}));
+
 /* ────────────────────────────────────────────────────────────────────────────
  * Row types
  * ──────────────────────────────────────────────────────────────────────────── */
@@ -772,6 +987,11 @@ export type Coupon = typeof coupons.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
+export type CashRegister = typeof cashRegisters.$inferSelect;
+export type RestaurantOrder = typeof restaurantOrders.$inferSelect;
+export type RestaurantOrderItem = typeof restaurantOrderItems.$inferSelect;
+export type Payment = typeof payments.$inferSelect;
+export type PaymentItem = typeof paymentItems.$inferSelect;
 
 /** The axes a product declares, stored in products.option_types. */
 export type OptionType = { name: string; values: string[] };
@@ -789,6 +1009,27 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const PAYMENT_METHODS = ["efectivo", "transferencia"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export const RESTAURANT_ORDER_STATUSES = [
+  "draft",
+  "preparing",
+  "ready",
+  "delivered",
+  "cancelled",
+] as const;
+export type RestaurantOrderStatus = (typeof RESTAURANT_ORDER_STATUSES)[number];
+
+export const RESTAURANT_PAYMENT_STATUSES = ["pending", "partially_paid", "paid"] as const;
+export type RestaurantPaymentStatus = (typeof RESTAURANT_PAYMENT_STATUSES)[number];
+
+export const RESTAURANT_CHANNELS = ["local", "whatsapp", "rappi", "pedidosya", "self_order"] as const;
+export type RestaurantChannel = (typeof RESTAURANT_CHANNELS)[number];
+
+export const CASH_REGISTER_STATUSES = ["open", "closed"] as const;
+export type CashRegisterStatus = (typeof CASH_REGISTER_STATUSES)[number];
+
+export const RESTAURANT_PAYMENT_METHODS = ["cash", "transfer", "card", "platform"] as const;
+export type RestaurantPaymentMethod = (typeof RESTAURANT_PAYMENT_METHODS)[number];
 
 export const DELIVERY_METHODS = ["domicilio", "retiro"] as const;
 export type DeliveryMethod = (typeof DELIVERY_METHODS)[number];
