@@ -19,7 +19,7 @@
  * (user row + `credential` account + replaceRoles), so the accounts are
  * indistinguishable from ones made in the admin UI.
  */
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { isProduction } from "../config/env.ts";
 import { generateId } from "../lib/ids.ts";
 import { hashPassword } from "../lib/password.ts";
@@ -31,10 +31,13 @@ import { replaceRoles } from "../services/users.ts";
 import { closeDatabase, db } from "./client.ts";
 import {
   accounts,
+  branches,
+  businesses,
   categories,
   coupons,
   orders,
   priceTiers,
+  productBranches,
   products,
   productVariants,
   promotionItems,
@@ -42,6 +45,7 @@ import {
   users,
 } from "./schema.ts";
 import { seedRbac } from "./seed.ts";
+import { getBusiness } from "../services/business.ts";
 
 if (isProduction) {
   console.error("db:seed:dev no se ejecuta con NODE_ENV=production.");
@@ -656,6 +660,79 @@ const SERVICE_ORDER_CUSTOMERS: Array<{ name: string; phone: string; city: string
   { name: "Andrés Villacís", phone: "0999100018", city: "Quito", service: "diseno-logo-express" },
 ];
 
+const SHOWCASE_BRANCHES = [
+  {
+    name: "Quito Norte - Shyris",
+    address: "Av. de los Shyris N35-174 y Portugal, Quito",
+    hours: "Lunes a sábado de 10h00 a 20h00",
+    phone: "+593 98 551 3958",
+    whatsapp: "+593 98 551 3958",
+    mapsUrl: "https://maps.google.com/?q=Av.+de+los+Shyris+Quito",
+  },
+  {
+    name: "Quito Sur - Recreo",
+    address: "Centro Comercial El Recreo, local A52, Quito",
+    hours: "Lunes a sábado de 10h00 a 20h00",
+    phone: "+593 99 861 0408",
+    whatsapp: "+593 99 861 0408",
+    mapsUrl: "https://maps.google.com/?q=Centro+Comercial+El+Recreo+Quito",
+  },
+  {
+    name: "Guayaquil Norte - Kennedy",
+    address: "Av. Francisco de Orellana y Miguel H. Alcívar, Guayaquil",
+    hours: "Lunes a viernes de 09h30 a 18h30",
+    phone: "+593 96 899 2062",
+    whatsapp: "+593 96 899 2062",
+    mapsUrl: "https://maps.google.com/?q=Kennedy+Norte+Guayaquil",
+  },
+  {
+    name: "Cuenca Centro",
+    address: "Calle Bolívar y Benigno Malo, Cuenca",
+    hours: "Lunes a sábado de 09h00 a 18h00",
+    phone: "+593 96 084 9146",
+    whatsapp: "+593 96 084 9146",
+    mapsUrl: "https://maps.google.com/?q=Centro+Cuenca+Ecuador",
+  },
+] as const;
+
+const BRANCH_PRODUCT_SLUGS: Record<string, string[]> = {
+  "Quito Norte - Shyris": [
+    "camiseta-basica-algodon",
+    "hoodie-unisex-oversize",
+    "zapatillas-urbanas-running",
+    "audifonos-bluetooth-inalambricos",
+    "power-bank-10000mah",
+    "kit-maquillaje-basico",
+    "asesoria-imagen-personal",
+  ],
+  "Quito Sur - Recreo": [
+    "camiseta-estampada-edicion",
+    "sandalias-playa",
+    "gorra-bordada-snapback",
+    "bolso-mano-elegante",
+    "set-vasos-vidrio-x6",
+    "crema-hidratante-facial",
+    "clases-maquillaje-1-hora",
+  ],
+  "Guayaquil Norte - Kennedy": [
+    "zapatillas-urbanas-running",
+    "zapatos-formales-vestir",
+    "funda-protectora-celular",
+    "cargador-tipo-c-rapido",
+    "cafe-molido-artesanal-500g",
+    "caja-snacks-surtidos-x12",
+    "diseno-logo-express",
+  ],
+  "Cuenca Centro": [
+    "pantalon-jean-clasico",
+    "vestido-casual-verano",
+    "termo-acero-inoxidable-1l",
+    "mochila-escolar-impermeable",
+    "juego-sabanas-queen",
+    "set-brochas-maquillaje-x5",
+  ],
+};
+
 function pick<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]!;
 }
@@ -975,6 +1052,66 @@ async function seedShowcase(): Promise<void> {
   );
 }
 
+async function seedWebContent(): Promise<void> {
+  const business = await getBusiness();
+  await db
+    .update(businesses)
+    .set({
+      aboutTitle: "Sobre Tienda de Prueba",
+      aboutBody:
+        "Somos una tienda ecuatoriana pensada para vender de forma simple, rápida y cercana. Combinamos catálogo online, atención por WhatsApp y puntos de atención físicos para que cada cliente pueda comprar con confianza.\n\nNuestro objetivo es mostrar productos claros, precios actualizados y opciones de contacto directas. Si necesitas confirmar disponibilidad, retirar en una sucursal o pedir asesoría, nuestro equipo está listo para ayudarte.",
+      contactIntro:
+        "Escríbenos para confirmar disponibilidad, resolver dudas sobre productos o coordinar retiro en una sucursal. También puedes visitarnos en cualquiera de nuestros puntos de atención.",
+      updatedAt: new Date(),
+    })
+    .where(eq(businesses.id, business.id));
+
+  const branchIds = new Map<string, number>();
+  for (const [index, branch] of SHOWCASE_BRANCHES.entries()) {
+    const [existing] = await db.select().from(branches).where(eq(branches.name, branch.name)).limit(1);
+    const values = {
+      name: branch.name,
+      address: branch.address,
+      hours: branch.hours,
+      phone: branch.phone,
+      whatsapp: branch.whatsapp,
+      mapsUrl: branch.mapsUrl,
+      active: true,
+      position: index + 1,
+      updatedAt: new Date(),
+    };
+
+    const [row] = existing
+      ? await db.update(branches).set(values).where(eq(branches.id, existing.id)).returning()
+      : await db.insert(branches).values(values).returning();
+
+    branchIds.set(branch.name, row!.id);
+  }
+
+  const slugs = [...new Set(Object.values(BRANCH_PRODUCT_SLUGS).flat())];
+  const productRows = await db.select({ id: products.id, slug: products.slug }).from(products).where(inArray(products.slug, slugs));
+  const productsBySlug = new Map(productRows.map((product) => [product.slug, product.id]));
+
+  if (productRows.length > 0) {
+    await db.delete(productBranches).where(inArray(productBranches.productId, productRows.map((product) => product.id)));
+  }
+
+  const links = Object.entries(BRANCH_PRODUCT_SLUGS).flatMap(([branchName, productSlugs]) => {
+    const branchId = branchIds.get(branchName);
+    if (!branchId) return [];
+    return productSlugs
+      .map((slug) => productsBySlug.get(slug))
+      .filter((productId): productId is number => productId !== undefined)
+      .map((productId) => ({ branchId, productId }));
+  });
+
+  if (links.length > 0) {
+    await db.insert(productBranches).values(links).onConflictDoNothing();
+  }
+
+  console.log(`  sitio web demo: ${SHOWCASE_BRANCHES.length} sucursales, ${links.length} disponibilidades`);
+}
+
 async function main(): Promise<void> {
   await seedRbac();
 
@@ -986,6 +1123,7 @@ async function main(): Promise<void> {
 
   await seedCatalog();
   await seedShowcase();
+  await seedWebContent();
 
   console.log(`\nContraseña para todas las cuentas: ${PASSWORD}`);
 }

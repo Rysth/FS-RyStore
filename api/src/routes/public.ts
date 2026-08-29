@@ -38,6 +38,12 @@ import {
   relatedProducts,
   serializeStore,
 } from "../services/storefront.ts";
+import {
+  listBranches,
+  listDownloadableCatalogs,
+  publicBranchJson,
+  serializeDownloadableCatalog,
+} from "../services/web-content.ts";
 import { buildWhatsappMessage } from "../services/whatsapp-message.ts";
 
 /**
@@ -112,6 +118,16 @@ function registerOpenRoutes(app: FastifyInstance): void {
       ...publicFields
     } = serializeBusiness(await getBusiness());
     return ok(reply, { business: publicFields });
+  });
+
+  app.get("/api/v1/public/branches", async (_request, reply) => {
+    return ok(reply, { branches: (await listBranches({ active: true })).map(publicBranchJson) });
+  });
+
+  app.get("/api/v1/public/downloadable-catalogs", async (_request, reply) => {
+    return ok(reply, {
+      downloadable_catalogs: (await listDownloadableCatalogs({ active: true })).map(serializeDownloadableCatalog),
+    });
   });
 }
 

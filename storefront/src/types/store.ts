@@ -46,6 +46,7 @@ export interface StoreProduct {
   price_tiers: PriceTier[];
   option_types?: ProductOptionType[];
   variants?: ProductVariant[];
+  branches?: StoreBranch[];
 }
 
 /** One product inside a combo, with how many units of it the combo includes. */
@@ -83,6 +84,24 @@ export interface StoreCategory {
   image_url: string | null;
 }
 
+export interface StoreBranch {
+  id: number;
+  name: string;
+  address: string | null;
+  hours: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  maps_url: string | null;
+}
+
+export interface DownloadableCatalog {
+  id: number;
+  title: string;
+  description: string | null;
+  cover_image_url: string | null;
+  file_url: string;
+}
+
 export interface StoreSettings {
   name: string;
   slogan: string;
@@ -94,6 +113,9 @@ export interface StoreSettings {
   address: string | null;
   /** Google Maps link for the shop's location. Rendered as a "Cómo llegar" link. */
   maps_url: string | null;
+  about_title: string | null;
+  about_body: string | null;
+  contact_intro: string | null;
   delivery_notes: string | null;
   bank_instructions: string | null;
   primary_color: string | null;

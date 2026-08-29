@@ -18,6 +18,10 @@ import {
 } from "../lib/storage.ts";
 import { refreshProductsCount } from "../services/categories.ts";
 import {
+  existingBranchIds,
+  replaceProductBranches,
+} from "../services/web-content.ts";
+import {
   compactImagePositions,
   findProduct,
   listProducts,
@@ -77,6 +81,7 @@ const productSchema = z.object({
   price_tiers: z.array(z.record(z.unknown())).optional(),
   option_types: z.array(z.record(z.unknown())).optional(),
   variants: z.array(z.record(z.unknown())).optional(),
+  branch_ids: z.array(z.coerce.number().int()).optional(),
 });
 
 const reorderImagesSchema = z.object({
@@ -88,6 +93,15 @@ const bulkUpdateSchema = z.object({
   category_id: z.coerce.number().int().nullish(),
   active: booleanInput.optional(),
 });
+
+function normalizeBranchIds(ids: number[]): number[] {
+  return [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+}
+
+async function allBranchesExist(ids: number[]): Promise<boolean> {
+  if (ids.length === 0) return true;
+  return (await existingBranchIds(ids)).length === ids.length;
+}
 
 export async function registerProductRoutes(app: FastifyInstance): Promise<void> {
   const canRead = requirePermission(PERMISSION_KEYS.VIEW_CATALOG, PERMISSION_KEYS.MANAGE_CATALOG);
@@ -135,6 +149,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
     const optionTypes = normalizeOptionTypes(values.option_types ?? []);
     const tiers = normalizeTiers(values.price_tiers ?? []);
     const variants = normalizeVariants(values.variants ?? []);
+    const branchIds = normalizeBranchIds(values.branch_ids ?? []);
 
     const errors = [
       ...validateProduct({
@@ -151,6 +166,11 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
     ];
     if (errors.length > 0) {
       return fail(reply, "No se pudo crear el producto", 422, { errors });
+    }
+    if (!(await allBranchesExist(branchIds))) {
+      return fail(reply, "No se pudo crear el producto", 422, {
+        errors: ["Una de las sucursales seleccionadas no existe"],
+      });
     }
 
     const productId = await db.transaction(async (tx) => {
@@ -172,6 +192,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
 
       await replaceTiers(tx, created!.id, tiers);
       await replaceVariants(tx, created!.id, variants);
+      await replaceProductBranches(tx, created!.id, branchIds);
       return created!.id;
     });
 
@@ -223,6 +244,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
             : values.variants === undefined
             ? null
             : normalizeVariants(values.variants);
+        const branchIds = values.branch_ids === undefined ? null : normalizeBranchIds(values.branch_ids);
 
         const storedVariants = record.variants.map((variant) => ({
           options: variant.options as Record<string, string>,
@@ -240,6 +262,11 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
         ];
         if (errors.length > 0) {
           return fail(reply, "No se pudo actualizar el producto", 422, { errors });
+        }
+        if (branchIds !== null && !(await allBranchesExist(branchIds))) {
+          return fail(reply, "No se pudo actualizar el producto", 422, {
+            errors: ["Una de las sucursales seleccionadas no existe"],
+          });
         }
 
         await db.transaction(async (tx) => {
@@ -264,6 +291,7 @@ export async function registerProductRoutes(app: FastifyInstance): Promise<void>
 
           if (tiers !== null) await replaceTiers(tx, current.id, tiers);
           if (variants !== null) await replaceVariants(tx, current.id, variants);
+          if (branchIds !== null) await replaceProductBranches(tx, current.id, branchIds);
         });
 
         await refreshProductsCount(current.categoryId);

@@ -1,5 +1,6 @@
 import { env } from "../config/env.ts";
 import type { Business, User } from "../db/schema.ts";
+import { useLocalStorage } from "./storage.ts";
 
 /**
  * JSON shapes returned to the admin SPA.
@@ -67,6 +68,10 @@ export function logoUrl(logoKey: string | null): string {
  */
 export function assetUrl(key: string | null | undefined): string {
   if (!key) return "";
+  if (useLocalStorage()) {
+    const base = (env.PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
+    return `${base}/uploads/${key}`;
+  }
   const base = env.CLOUDFLARE_PUBLIC_URL?.replace(/\/$/, "");
   return base ? `${base}/${key}` : "";
 }
@@ -84,6 +89,9 @@ export function serializeBusiness(business: Business) {
     tiktok: business.tiktok,
     address: business.address,
     maps_url: business.mapsUrl,
+    about_title: business.aboutTitle,
+    about_body: business.aboutBody,
+    contact_intro: business.contactIntro,
     delivery_notes: business.deliveryNotes,
     bank_instructions: business.bankInstructions,
     primary_color: business.primaryColor,

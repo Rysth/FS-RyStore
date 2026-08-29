@@ -12,6 +12,7 @@ import ProductsIndex from "../pages/dashboard/catalog/ProductsIndex";
 import ProductForm from "../pages/dashboard/catalog/ProductForm";
 import CategoriesIndex from "../pages/dashboard/catalog/CategoriesIndex";
 import PromotionsIndex from "../pages/dashboard/catalog/PromotionsIndex";
+import WebContentIndex from "../pages/dashboard/web/WebContentIndex";
 import OrdersIndex from "../pages/dashboard/orders/OrdersIndex";
 import OrderForm from "../pages/dashboard/orders/OrderForm";
 import OrderDetail from "../pages/dashboard/orders/OrderDetail";
@@ -158,6 +159,19 @@ export const router = createBrowserRouter([
             ]}
           >
             <PromotionsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "web-content",
+        element: (
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.VIEW_CATALOG,
+              Permissions.MANAGE_CATALOG,
+            ]}
+          >
+            <WebContentIndex />
           </ProtectedRoute>
         ),
       },

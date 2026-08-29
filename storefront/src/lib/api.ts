@@ -3,7 +3,9 @@ import type {
   CheckoutResult,
   ConfirmedOrder,
   CouponPreview,
+  DownloadableCatalog,
   Pagination,
+  StoreBranch,
   StoreCategory,
   StoreProduct,
   StorePromotion,
@@ -128,6 +130,14 @@ export function fetchSettings(): Promise<{ store: StoreSettings }> {
 
 export function fetchCategories(): Promise<{ categories: StoreCategory[] }> {
   return serverFetch("/api/v1/public/categories");
+}
+
+export function fetchBranches(): Promise<{ branches: StoreBranch[] }> {
+  return serverFetch("/api/v1/public/branches");
+}
+
+export function fetchDownloadableCatalogs(): Promise<{ downloadable_catalogs: DownloadableCatalog[] }> {
+  return serverFetch("/api/v1/public/downloadable-catalogs");
 }
 
 /**

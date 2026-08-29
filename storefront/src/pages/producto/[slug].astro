@@ -122,6 +122,10 @@ const jsonLd = loadedProduct ? {
 
 const pageTitle = loadedProduct?.name || unavailableTitle;
 const pageImage = loadedProduct?.image_url || undefined;
+const availableBranches = loadedProduct?.branches ?? [];
+const showBranches =
+  availableBranches.length > 0 &&
+  !(loadedProduct?.stock != null && loadedProduct.stock <= 0);
 ---
 
 <StoreLayout
@@ -185,6 +189,38 @@ const pageImage = loadedProduct?.image_url || undefined;
         <h1 class="text-2xl font-bold sm:text-3xl">{loadedProduct.name}</h1>
 
         <AddToCart client:load product={loadedProduct} />
+
+        {
+          showBranches && (
+            <div class="rounded-2xl border border-border/60 bg-muted/30 p-4">
+              <h2 class="text-sm font-semibold">Disponible en sucursales</h2>
+              <div class="mt-3 space-y-3">
+                {availableBranches.map((branch) => {
+                  const branchWhatsapp = (branch.whatsapp || "").replace(/\D/g, "");
+                  return (
+                    <article class="rounded-xl bg-background p-3 text-sm shadow-sm">
+                      <div class="font-medium">{branch.name}</div>
+                      {branch.address && <p class="mt-1 text-muted-foreground">{branch.address}</p>}
+                      {branch.hours && <p class="mt-1 text-xs text-muted-foreground">Horario: {branch.hours}</p>}
+                      <div class="mt-2 flex flex-wrap gap-2">
+                        {branch.maps_url && (
+                          <a href={branch.maps_url} target="_blank" rel="noopener noreferrer" class="text-xs font-medium hover:underline" style="color: var(--rystore-primary)">
+                            Cómo llegar
+                          </a>
+                        )}
+                        {branchWhatsapp && (
+                          <a href={`https://wa.me/${branchWhatsapp}`} target="_blank" rel="noopener noreferrer" class="text-xs font-medium hover:underline" style="color: var(--rystore-primary)">
+                            Consultar sucursal
+                          </a>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        }
 
         {
           comboUpsell && (

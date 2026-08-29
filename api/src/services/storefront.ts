@@ -16,6 +16,7 @@ import {
 import { comboItems, listPromotions, promotionImageUrl } from "./promotions.ts";
 import { galleryUrls, toPricedProduct, toPricedVariant } from "./products.ts";
 import type { ProductRecord } from "./products.ts";
+import { loadProductBranches, publicBranchJson } from "./web-content.ts";
 
 /**
  * Port of Api::V1::Public::* — everything the Astro storefront reads.
@@ -45,6 +46,9 @@ export function serializeStore(business: Business) {
     tiktok: business.tiktok,
     address: business.address,
     maps_url: business.mapsUrl,
+    about_title: business.aboutTitle,
+    about_body: business.aboutBody,
+    contact_intro: business.contactIntro,
     delivery_notes: business.deliveryNotes,
     bank_instructions: business.bankInstructions,
     primary_color: business.primaryColor,
@@ -223,7 +227,7 @@ export async function hydrate(rows: CatalogRow[]): Promise<ProductRecord[]> {
   if (rows.length === 0) return [];
   const ids = rows.map((row) => row.product.id);
 
-  const [tiers, variants, images] = await Promise.all([
+  const [tiers, variants, images, branchMap] = await Promise.all([
     db.select().from(priceTiers).where(inArray(priceTiers.productId, ids)).orderBy(asc(priceTiers.minQuantity)),
     db
       .select()
@@ -235,6 +239,7 @@ export async function hydrate(rows: CatalogRow[]): Promise<ProductRecord[]> {
       .from(productImages)
       .where(inArray(productImages.productId, ids))
       .orderBy(asc(productImages.position), asc(productImages.id)),
+    loadProductBranches(ids),
   ]);
 
   return rows.map((row) => ({
@@ -244,6 +249,7 @@ export async function hydrate(rows: CatalogRow[]): Promise<ProductRecord[]> {
     tiers: tiers.filter((tier) => tier.productId === row.product.id),
     variants: variants.filter((variant) => variant.productId === row.product.id),
     images: images.filter((image) => image.productId === row.product.id),
+    branches: (branchMap.get(row.product.id) ?? []).filter((branch) => branch.active),
   }));
 }
 
@@ -272,6 +278,7 @@ export function publicProductJson(record: ProductRecord) {
     stock: product.stock,
     category_name: record.categoryName,
     category_slug: record.categorySlug,
+    branches: (record.branches ?? []).map(publicBranchJson),
     price_tiers: tierRows.map((tier) => ({
       min_quantity: tier.minQuantity,
       unit_price: tier.unitPrice,

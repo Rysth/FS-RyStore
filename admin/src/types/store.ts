@@ -12,6 +12,32 @@ export interface Category {
   updated_at?: string;
 }
 
+export interface Branch {
+  id: number;
+  name: string;
+  address: string | null;
+  hours: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  maps_url: string | null;
+  active: boolean;
+  position: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DownloadableCatalog {
+  id: number;
+  title: string;
+  description: string | null;
+  cover_image_url: string | null;
+  file_url: string;
+  active: boolean;
+  position: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface PriceTier {
   min_quantity: number;
   /** Decimal string, e.g. "4.20" — never a float. */
@@ -65,6 +91,8 @@ export interface Product {
   price_tiers: PriceTier[];
   option_types: ProductOptionType[];
   variants: ProductVariant[];
+  branch_ids: number[];
+  branches: Branch[];
   created_at?: string;
   updated_at?: string;
 }

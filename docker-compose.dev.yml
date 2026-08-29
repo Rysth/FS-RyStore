@@ -53,6 +53,7 @@ services:
       - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
       - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
       - CLOUDFLARE_BUCKET_NAME=${CLOUDFLARE_BUCKET_NAME}
+      - CLOUDFLARE_PUBLIC_URL=${CLOUDFLARE_PUBLIC_URL:-}
     # Replaces `rails db:prepare`: migrations are applied, then the RBAC seed,
     # which is idempotent and cheap enough to run on every start. db:seed:dev
     # adds the local user fixtures (admin/manager/operator/... — password123)
