@@ -204,7 +204,7 @@ async function activeOrdersForRegister(cashRegisterId: number): Promise<{ count:
   return { count: row?.count ?? 0, total: normalizeMoney(row?.total) };
 }
 
-function businessDateFor(date: Date): string {
+export function businessDateFor(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Guayaquil",
     year: "numeric",

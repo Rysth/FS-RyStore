@@ -28,6 +28,7 @@ export interface RestaurantOrder {
   delivered_at: string | null;
   prep_seconds: number | null;
   delivery_seconds: number | null;
+  cancel_reason: string | null;
   cash_register_id: number;
   items: Array<{
     id: number;

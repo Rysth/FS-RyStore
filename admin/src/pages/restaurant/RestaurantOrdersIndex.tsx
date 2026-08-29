@@ -64,6 +64,7 @@ export default function RestaurantOrdersIndex() {
     [lines],
   );
   const activeOrders = orders.filter((order) => order.status === "preparing" || order.status === "ready");
+  const dailyHistory = orders.filter((order) => order.status === "delivered" || order.status === "cancelled");
 
   function addProduct(product: Product) {
     setLines((currentLines) => {
@@ -436,6 +437,43 @@ export default function RestaurantOrdersIndex() {
               </div>
             ))}
             {activeOrders.length === 0 ? <p className="text-sm text-muted-foreground">Sin pedidos activos.</p> : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Historial del día</CardTitle>
+            <CardDescription>
+              Pedidos entregados y cancelados de hoy.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {dailyHistory.map((order) => (
+              <div
+                key={order.id}
+                className={`rounded-lg border px-3 py-3 text-sm ${
+                  order.status === "cancelled"
+                    ? "border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/20"
+                    : "border-border bg-card"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">
+                      #{order.number} · {order.customer_name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {order.status === "delivered" ? "Entregado" : "Cancelado"}
+                      {order.status === "cancelled" && order.cancel_reason ? ` · ${order.cancel_reason}` : ""}
+                    </p>
+                  </div>
+                  <span className="font-medium tabular-nums">{formatPrice(order.total_amount)}</span>
+                </div>
+              </div>
+            ))}
+            {dailyHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sin pedidos finalizados hoy.</p>
+            ) : null}
           </CardContent>
         </Card>
       </div>

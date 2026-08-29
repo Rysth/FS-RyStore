@@ -10,6 +10,7 @@ import {
 } from "../../db/schema.ts";
 import type { RestaurantOrder, RestaurantOrderItem, RestaurantPaymentMethod } from "../../db/schema.ts";
 import { addCents, fromCents, multiplyCents, toCents, ZERO } from "../../lib/money.ts";
+import { businessDateFor } from "./cash-registers.ts";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type ServiceResult<T> = { success: true; value: T } | { success: false; errors: string[] };
@@ -158,12 +159,13 @@ export async function createPaidRestaurantOrder(
 }
 
 export async function listRestaurantOrders(): Promise<RestaurantOrderRecord[]> {
+  const today = businessDateFor(new Date());
   const rows = await db
     .select()
     .from(restaurantOrders)
-    .where(sql`${restaurantOrders.status} <> 'cancelled'`)
+    .where(eq(restaurantOrders.businessDate, today))
     .orderBy(desc(restaurantOrders.confirmedAt), desc(restaurantOrders.id))
-    .limit(100);
+    .limit(200);
 
   const itemsByOrder = await itemsForOrders(rows.map((row) => row.id));
   return rows.map((order) => ({ order, items: itemsByOrder.get(order.id) ?? [] }));
@@ -265,6 +267,7 @@ export function serializeRestaurantOrder(record: RestaurantOrderRecord) {
     delivered_at: order.deliveredAt?.toISOString() ?? null,
     prep_seconds: order.prepSeconds,
     delivery_seconds: order.deliverySeconds,
+    cancel_reason: order.cancelReason,
     cash_register_id: order.cashRegisterId,
     items: record.items.map(serializeRestaurantOrderItem),
     created_at: order.createdAt.toISOString(),
